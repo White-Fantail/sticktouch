@@ -2,7 +2,7 @@ import type {GameEventType} from "./game-feel";
 export type AudioPreferences={
   musicEnabled:boolean; sfxEnabled:boolean; musicVolume:number; sfxVolume:number;
 };
-type MusicTheme="pop"|"fruit"|"rhythm";
+export type MusicTheme="pop"|"fruit"|"rhythm";
 const notes={pop:[0,4,7,12,7,4,2,7],fruit:[0,2,4,7,9,7,4,2],rhythm:[0,0,7,5,0,3,7,10]};
 export class AudioManager {
   private context:AudioContext|null=null;
@@ -15,6 +15,8 @@ export class AudioManager {
   private theme:MusicTheme="pop";
   private prefs:AudioPreferences={musicEnabled:true,sfxEnabled:true,musicVolume:35,sfxVolume:65};
   setPreferences(next:AudioPreferences){
+    if(!this.prefs.musicEnabled&&next.musicEnabled)this.nextNote=0;
+    if(this.prefs.musicEnabled&&!next.musicEnabled)this.nextNote=0;
     this.prefs=next;
     if(this.musicGain)this.musicGain.gain.value=next.musicEnabled?next.musicVolume/100*0.18:0;
     if(this.fxGain)this.fxGain.gain.value=next.sfxEnabled?next.sfxVolume/100*0.35:0;
@@ -34,7 +36,7 @@ export class AudioManager {
       this.setPreferences(this.prefs);
     }catch{/* Audio is optional and must never block play. */}
   }
-  pause(){this.mutedByPause=true;}
+  pause(){this.mutedByPause=true;this.nextNote=0;}
   resume(){
     this.mutedByPause=false;this.nextNote=0;
     if(this.context&&this.context.state==="suspended")void this.context.resume().catch(()=>{});
