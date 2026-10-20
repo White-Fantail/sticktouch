@@ -112,8 +112,8 @@ git fetch origin
 git merge-base --is-ancestor origin/main origin/dev || {
   echo "STOP: main is not an ancestor of dev"; exit 1;
 }
-git switch main
-git reset --hard origin/main  # 오직 로컬 변경이 없는 것을 확인한 후 사용
+git switch main                 # 로컬 미커밋 변경이 없는지 확인 후
+git pull --ff-only origin main # 로컬 main을 원격 main과 안전하게 동기화
 git merge --ff-only origin/dev
 git push origin main
 ```
