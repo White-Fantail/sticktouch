@@ -22,7 +22,7 @@ function PageRouter() {
     <header className="site-header"><div className="site-container site-header-inner">
       <Link to="/" className="brand"><span className="brand-mark">✳</span> StickTouch</Link>
       <nav className="main-nav" aria-label="주 메뉴">
-        <Link to="/" aria-current={pathname==="/ " ? undefined : pathname==="/"?"page":undefined}>홈</Link>
+        <Link to="/" aria-current={pathname==="/"?"page":undefined}>홈</Link>
         <Link to="/games" aria-current={pathname==="/games"?"page":undefined}>게임 탐색</Link>
         <Link to="/settings" aria-current={pathname==="/settings"?"page":undefined}>⚙ <span>설정</span></Link>
       </nav></div></header>
