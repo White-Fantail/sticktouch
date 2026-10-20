@@ -4,6 +4,8 @@ import type {MusicTheme} from "../engine/audio";
 
 type Props = {
   settings:AppSettings;
+  handModelStatus:"pending"|"ready"|"fallback";
+  handSources:{left:"hand"|"pose"|"none";right:"hand"|"pose"|"none"};
   update:(patch:Partial<AppSettings>)=>void;
   onClose:()=>void;
   onPreviewMusic:()=>void;
@@ -12,7 +14,7 @@ type Props = {
 };
 
 /** Lightweight settings modal inside the fullscreen-capable game stage. */
-export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onPreviewSfx}:Props){
+export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onPreviewSfx,handModelStatus,handSources}:Props){
   const trapFocus=(event:KeyboardEvent<HTMLDivElement>)=>{
     if(event.key!=="Tab")return;
     const controls=Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
@@ -105,6 +107,15 @@ export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onP
                 onClick={()=>update({effectsQuality:value})}>{label}</button>)}
           </div>
         </section>
+        {settings.diagnostics && <section className="quick-diagnostics" aria-label="실시간 추적 진단">
+          <h3>손 추적 진단</h3>
+          <div className="quick-diagnostics-values">
+            <span>정밀 추적 <b>{settings.preciseHands?"ON":"OFF"}</b></span>
+            <span>Hand 모델 <b>{handModelStatus==="pending"?"준비 전":handModelStatus==="ready"?"준비됨":"Pose 폴백"}</b></span>
+            <span>왼손 <b>{handSources.left.toUpperCase()}</b></span>
+            <span>오른손 <b>{handSources.right.toUpperCase()}</b></span>
+          </div>
+        </section>}
       </div>
       <footer className="quick-settings-footer">
         <span>기존 설정 페이지와 동일하게 저장됩니다.</span>
