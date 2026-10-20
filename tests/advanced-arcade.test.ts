@@ -15,7 +15,7 @@ const step=(r:ReturnType<typeof createAdvancedRound>,dt=.08,points=away())=>
   stepAdvancedRound(r,dt,W,H,points,rand);
 
 test("five distinct advanced games are available through the common runtime",()=>{
-  assert.equal(GAMES.length,13);
+  assert.equal(GAMES.length,18);
   for(const id of ADVANCED_GAME_IDS){
     assert.equal(GAMES.find(g=>g.id===id)?.status,"available");
     const round=createGameRound(id);
