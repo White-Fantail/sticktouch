@@ -18,7 +18,7 @@ export const SETTINGS_KEY = "sticktouch:settings:v1";
 export const DEFAULT_SETTINGS: AppSettings = {
   mode: "both", rings: true, preciseHands: true,
   hitbox: 100, side: "user", diagnostics: false,
-  musicEnabled: true, sfxEnabled: true, musicVolume: 35, sfxVolume: 65,
+  musicEnabled: true, sfxEnabled: true, musicVolume: 55, sfxVolume: 65,
   effectsQuality: "full"
 };
 function volume(input:unknown,fallback:number):number {
