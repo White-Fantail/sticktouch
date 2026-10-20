@@ -97,7 +97,7 @@ function App(){
     posesRef.current=undefined;gameRef.current.playing=false;
     if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);}
   },[]);
-  useEffect(()=>()=>{mountedRef.current=false;stop();},[stop]);
+  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
 
   const start = async (facing:CameraSide=side)=>{
     stop();
