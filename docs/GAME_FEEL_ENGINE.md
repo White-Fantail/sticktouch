@@ -42,3 +42,16 @@ Move balloon-specific round state fully behind a GameModule interface when imple
 ## Development policy
 
 Only commit feature work to dev. Do not merge to main without user request; strict fast-forward only.
+
+
+## Audio volume and quick settings revision (2026-10-21)
+
+**Observed issue:** musicGain was capped at 0.18 before multiplying by a small oscillator envelope and user percentage, and music only emitted short notes on alternate beats. Adjusting sound on the full settings route also unmounted the game so there was no live comparison.
+
+**Fix:** AudioManager now uses exported pure volumeToGain(0..100, "music" | "sfx") to scale independent channel buses (music up to 0.55, SFX up to 0.70) with a fast anti-click ramp. The melody plays an audible note every beat; original sparse notes are replaced. The new install default is 55% BGM, while existing users keep saved percentages. In-game quick settings can preview both channels during a paused round, on explicit sample button clicks or slider release. Previews never advance game time or auto-resume the BGM.
+
+**Quick settings lifecycle:** opening game gear executes pauseForSettings(), retains camera/round/score, and remembers whether it was running. Closing via X, footer button or Escape calls restoreAfterSettings() only when the round was previously running and the page is visible. If the player had manually paused or the tab was backgrounded, it remains paused. The dialog is part of the fullscreen game stage, not the full /settings route.
+
+**Shared fields:** settings update() remains the single persistence path for toggles, BGM/SFX sliders, presentation mode, touch rings, hitbox scale and effect quality. The full settings page stays available outside gameplay. A per-session quick mute is cleared by explicit sound adjustments to avoid apparently unresponsive sliders.
+
+**Tests:** tests/audio.test.ts checks both channel gain changes and paused previews with fake Web Audio; tests/quick-settings.test.ts verifies volume scaling and pause restoration. Browser/real speaker output still requires hardware verification.
