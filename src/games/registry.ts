@@ -22,12 +22,12 @@ export const GAMES: readonly GameDefinition[] = [
    category:"touch", status:"available", duration:"60초", bodyParts:"손 · 발 · 머리",
    artwork:"balloons", emoji:"🎈", feedback:{musicTheme:"pop"}},
   {id:"fruit-catch", title:"과일 바구니", tagline:"떨어지는 과일을 잡아라!",
-   description:"움직임으로 가상의 바구니를 옮겨 떨어지는 과일을 받아 보세요.",
-   category:"catch", status:"coming-soon", duration:"미정", bodyParts:"양손",
+   description:"하단 카메라에 비친 손으로 바구니를 움직여 과일을 받고, 폭탄은 피하세요.",
+   category:"catch", status:"available", duration:"60초", bodyParts:"양손",
    artwork:"fruit", emoji:"🍎", feedback:{musicTheme:"fruit"}},
   {id:"pose-challenge", title:"포즈 챌린지", tagline:"동작을 따라 해 보세요!",
-   description:"화면에 나타나는 목표 자세를 따라 하며 즐기는 모션 게임.",
-   category:"pose", status:"coming-soon", duration:"미정", bodyParts:"온몸",
+   description:"다섯 가지 목표 자세를 따라 하고 0.85초 유지해 콤보를 이어 가세요.",
+   category:"pose", status:"available", duration:"60초", bodyParts:"온몸",
    artwork:"pose", emoji:"🕺", feedback:{musicTheme:"rhythm"}}
 ] as const;
 export function getGame(id: string): GameDefinition | undefined {
