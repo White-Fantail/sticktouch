@@ -47,6 +47,9 @@ export function GameStage({game}: {game: GameDefinition}) {
   const [stats,setStats]=useState<GameStats|null>(null);
   const [newBest,setNewBest]=useState(false);
   const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,"v1",hitbox)?.score??0);
+  useEffect(()=>{
+    setBestScore(getBestRecord(game.id,"v1",hitbox)?.score??0);
+  },[game.id,hitbox]);
   const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
   const [finished,setFinished]=useState(false);
   const videoRef=useRef<HTMLVideoElement>(null);
