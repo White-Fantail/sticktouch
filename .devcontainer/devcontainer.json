@@ -1,0 +1,14 @@
+{
+  "name": "StickTouch Web Game",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "forwardPorts": [
+    5173
+  ],
+  "portsAttributes": {
+    "5173": {
+      "label": "StickTouch game preview",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "npm install --no-audit --no-fund"
+}

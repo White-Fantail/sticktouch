@@ -141,3 +141,6 @@ git push origin main
 - **미구현/추후:** PWA 오프라인 캐시, 멀티플레이, 기록 저장, 사운드, 과일 바구니/포즈 리듬, 별도 설치형 앱, 상세 모델 성능 자동 벤치마크. manifest는 준비했지만 오프라인 동작은 보장하지 않는다.
 - **테스트 원칙:** 자동 테스트로 미러·crop·신뢰도·충돌을 검증하고 PC 및 실제 iOS/Android 브라우저에서 직접 카메라 권한/전신 인식/성능 확인해야 출시 가능. CI 및 타입 검사/빌드 통과와 실기기 검증은 구분한다.
 - **개발/병합:** 모든 작업은 `dev`에서. `main` 업데이트는 사용자 요청 후 **fast-forward-only** (merge commit, squash, 강제 업데이트 금지).
+
+
+개발 중 웹 테스트에는 로컬 `localhost` 외에 `.devcontainer/devcontainer.json`을 이용한 Codespaces 임시 HTTPS 포트 포워딩을 사용할 수 있다. 공개 배포와 Codespaces 프리뷰는 구별할 것.
