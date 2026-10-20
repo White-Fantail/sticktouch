@@ -22,12 +22,17 @@ export function gameViewport(id:string,width:number,height:number,videoWidth:num
   return {width:box.width,height:box.height,videoWidth,videoHeight,mirror,
     fit:id==="fruit-catch"?"contain":"cover"};
 }
-/** Use the actual visible (contained) video rect, so mirroring and pillarboxing do not skew control. */
+/** Amplify comfortable mid-camera hand movement to the whole basket track.
+ * Unlike a hitpoint, the basket is a steering control, not a direct touch target. */
+export const FRUIT_BASKET_REACH={min:0.30,max:0.70} as const;
+/** Respect the actual contained video rectangle and mirror direction before applying gain. */
 export function basketInput(points:readonly Point[],view:Viewport):number|null {
-  const palms=points.filter(p=>p.part==="leftHand"||p.part==="rightHand");
+  const palms=points.filter(p=>(p.part==="leftHand"||p.part==="rightHand")&&Number.isFinite(p.x));
   const image=coverRect(view);
   if(!palms.length||image.width<=0)return null;
-  return Math.max(0,Math.min(1,palms.reduce((sum,p)=>sum+(p.x-image.x)/image.width,0)/palms.length));
+  const cameraX=palms.reduce((sum,p)=>sum+(p.x-image.x)/image.width,0)/palms.length;
+  return Math.max(0,Math.min(1,(cameraX-FRUIT_BASKET_REACH.min)/
+    (FRUIT_BASKET_REACH.max-FRUIT_BASKET_REACH.min)));
 }
 export function gameTracking(round:GameRound,points:readonly Point[],pose:readonly Landmark[]|undefined):boolean {
   switch(round.kind){
@@ -46,7 +51,7 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
 }
 export function gameHint(id:string){
   switch(id){
-    case "fruit-catch":return "아래쪽 카메라 속 손을 좌우로 움직여 바구니로 과일을 받으세요. 폭탄은 피하세요!";
+    case "fruit-catch":return "카메라 중앙에서 손을 조금만 좌우로 움직여도 바구니가 끝까지 이동해요. 과일을 받고 폭탄은 피하세요!";
     case "pose-challenge":return "화면 속 자세를 따라 하고 0.85초 동안 유지하세요. 전신이 보이도록 서 주세요.";
     default:return "손·발·머리의 터치 영역으로 풍선을 터뜨려요";
   }
