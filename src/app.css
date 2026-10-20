@@ -109,3 +109,78 @@
 
 .game-hud .hud-timer.urgency{border-color:#ff8e7899;background:#4a2029e3}
 .game-hud .hud-timer.urgency b{color:#ffb8a4}
+
+
+/* In-game quick settings. Overlay stays inside the fullscreen-capable game panel. */
+.stage-quick-actions{display:flex;align-items:center;gap:12px}
+.stage-quick-settings-button{
+  border:1px solid #4b607d;border-radius:8px;background:#1e3049;color:#e6f4ff;
+  font-size:18px;min-height:32px;min-width:38px;cursor:pointer
+}
+.stage-quick-settings-button:hover{background:#31536a}
+.quick-settings-backdrop{
+  position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  padding:10px;background:rgba(5,11,23,.85);backdrop-filter:blur(8px)
+}
+.quick-settings-modal{
+  display:flex;flex-direction:column;max-height:100%;width:min(740px,100%);
+  background:#152138;color:#edf7ff;border:1px solid #4f607d;border-radius:17px;
+  box-shadow:0 15px 55px #000a;overflow:hidden;text-align:left;
+}
+.quick-settings-header{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:15px;
+  padding:15px 19px 12px;border-bottom:1px solid #374760
+}
+.quick-settings-header h2{font-size:clamp(18px,2.2vw,24px);margin:3px 0}
+.quick-settings-header p{font-size:12px;line-height:1.4;color:#aebfd9;margin:2px 0}
+.quick-close{border:1px solid #435572;background:#263852;color:#e2f1ff;
+  border-radius:9px;width:38px;height:36px;flex-shrink:0;font-size:17px}
+.quick-settings-body{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:26px;
+  padding:11px 19px;min-height:0;overflow-y:auto;overscroll-behavior:contain
+}
+.quick-settings-section{min-width:0}
+.quick-settings-section h3{font-size:14px;margin:6px 0 13px;color:#b7f6e2}
+.quick-control-row,.quick-volume-line{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.quick-control-row{margin:11px 0 10px;font-size:13px;font-weight:700}
+.quick-control-row label{cursor:pointer}
+.quick-volume-line{font-size:12px;color:#ccd7ec;margin:11px 0 7px}
+.quick-volume-line output{font-weight:800;color:#9ff2df}
+.quick-control-row input[type=checkbox]{appearance:checkbox;accent-color:#71edc7;width:18px;height:18px;cursor:pointer}
+.quick-slider-row{display:flex;align-items:center;gap:9px}
+.quick-slider-row input[type=range],.quick-full-slider{
+  min-width:0;width:100%;height:24px;accent-color:#77e7d0
+}
+.quick-slider-row button{white-space:nowrap;font-size:11px;border:1px solid #425a72;
+  background:#213650;color:#e3f0ff;border-radius:7px;padding:8px}
+.quick-slider-row button:hover:not(:disabled){background:#2d4c65}
+.quick-settings-modal button:disabled,.quick-settings-modal input:disabled{opacity:.4;cursor:not-allowed}
+.quick-sub-label{display:block;font-size:12px;font-weight:700;color:#c6d4ed;margin:13px 0 7px}
+.quick-segmented{display:flex;gap:5px;flex-wrap:wrap}
+.quick-segmented button{flex:1 0 auto;min-width:0;background:#203149;color:#b9cbe2;
+  border:1px solid #3d506c;border-radius:8px;padding:9px 6px;font-size:11px}
+.quick-segmented button.selected{color:#11362e;background:#98f0d6;border-color:#98f0d6;font-weight:800}
+.quick-settings-footer{
+  flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:12px 19px;background:#101b30;border-top:1px solid #374760
+}
+.quick-settings-footer span{font-size:11px;color:#a8bbd1}
+.quick-settings-footer .primary{padding:10px 14px;font-size:13px}
+.play-stage-panel:fullscreen{display:flex;flex-direction:column;width:100vw;max-width:none;height:100dvh;margin:0;border:0;border-radius:0}
+.play-stage-panel:fullscreen .play-stage{flex:1;min-height:0;height:auto;aspect-ratio:auto}
+@media(max-width:700px){
+  .quick-settings-body{grid-template-columns:1fr;gap:9px}
+  .quick-settings-header{padding:12px 14px 10px}
+  .quick-settings-body{padding:9px 14px}
+  .quick-settings-footer{padding:9px 14px}
+  .quick-settings-footer span{display:none}
+  .quick-settings-footer .primary{width:100%}
+  .quick-settings-header p{font-size:11px}
+  .stage-quick-actions{gap:6px}
+}
+@media(max-height:440px){
+  .quick-settings-header{padding:8px 12px}
+  .quick-settings-header h2{font-size:18px}
+  .quick-settings-body{padding:6px 12px}
+  .quick-settings-footer{padding:7px 12px}
+}
