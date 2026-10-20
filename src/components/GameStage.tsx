@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { matchHandPalms } from "../hands";
 import {getHitpoints, smoothHitpoints, type Landmark, type Point, type Viewport} from "../core";
-import {type DisplayMode, type CameraSide} from "../settings/settings";
+import {type DisplayMode, type CameraSide, type AppSettings} from "../settings/settings";
+import {QuickSettingsOverlay} from "./QuickSettingsOverlay";
+import {pauseForSettings,restoreAfterSettings} from "../engine/quick-pause";
 import {useSettings} from "../settings/SettingsContext";
 import {Link} from "../app/navigation";
 import {type GameDefinition} from "../games/registry";
@@ -26,6 +28,9 @@ export function GameStage({game}: {game: GameDefinition}) {
   const {mode,rings,hitbox,side,preciseHands,diagnostics,
     musicEnabled,sfxEnabled,musicVolume,sfxVolume,effectsQuality}=settings;
   const [quickMuted,setQuickMuted]=useState(false);
+  const [quickSettingsOpen,setQuickSettingsOpen]=useState(false);
+  const resumeAfterSettingsRef=useRef(false);
+  const quickSettingsButtonRef=useRef<HTMLButtonElement>(null);
   const [paused,setPaused]=useState(false);
   const [fullscreen,setFullscreen]=useState(false);
   const panelRef=useRef<HTMLDivElement>(null);
@@ -81,7 +86,8 @@ export function GameStage({game}: {game: GameDefinition}) {
     handsRef.current=[];smoothRef.current=[];posesRef.current=undefined;
     gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];
     feelRef.current.reset();effectsRef.current.reset();audioRef.current.destroy();
-    if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
+    resumeAfterSettingsRef.current=false;
+    if(mountedRef.current){setQuickSettingsOpen(false);setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
   },[]);
   useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
 
@@ -226,7 +232,7 @@ export function GameStage({game}: {game: GameDefinition}) {
             setPlaying(false);setFinished(true);setTimeLeft(0);
           }
         }
-        effectsRef.current.update(dt);
+        if(!g.playing || !g.paused)effectsRef.current.update(dt);
         paint(ctx,video,posesRef.current,g.balls,points,v,s.mode,s.rings);
         effectsRef.current.draw(ctx,width,height,reducedMotionRef.current?"off":s.effectsQuality);
       };
@@ -252,12 +258,13 @@ export function GameStage({game}: {game: GameDefinition}) {
     Object.assign(g,createBalloonRound(ROUND_SECONDS));
     feelRef.current.reset();effectsRef.current.reset();
     audioRef.current.start(game.feedback.musicTheme);audioRef.current.cue("start");
-    g.playing=true;setPaused(false);
+    g.playing=true;resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);setPaused(false);
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);setNewBest(false);
     setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
   };
   const end=()=>{
     gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];setPaused(false);
+    resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);
     audioRef.current.stopMusic();effectsRef.current.reset();feelRef.current.reset();
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);
     setPlaying(false);setFinished(false);setTimeLeft(ROUND_SECONDS);
@@ -265,9 +272,49 @@ export function GameStage({game}: {game: GameDefinition}) {
   const toggleCamera=async()=>{
     const next=side==="user"?"environment":"user";end();update({side:next});await start(next);
   };
+  const openQuickSettings=()=>{
+    if(quickSettingsOpen)return;
+    const g=gameRef.current;
+    resumeAfterSettingsRef.current=pauseForSettings(g);
+    if(g.playing){audioRef.current.pause();setPaused(true);}
+    setQuickSettingsOpen(true);
+  };
+  const closeQuickSettings=()=>{
+    const shouldResume=resumeAfterSettingsRef.current;
+    resumeAfterSettingsRef.current=false;
+    setQuickSettingsOpen(false);
+    if(restoreAfterSettings(gameRef.current,shouldResume,!document.hidden)){
+      audioRef.current.resume();setPaused(false);
+    }
+    quickSettingsButtonRef.current?.focus();
+  };
+  const updateQuickSettings=(patch:Partial<AppSettings>)=>{
+    if("musicEnabled" in patch || "sfxEnabled" in patch ||
+       "musicVolume" in patch || "sfxVolume" in patch){
+      // The session-only quick mute must not conceal persisted volume changes.
+      setQuickMuted(false);
+      audioRef.current.setPreferences({
+        musicEnabled:patch.musicEnabled??musicEnabled,
+        sfxEnabled:patch.sfxEnabled??sfxEnabled,
+        musicVolume:patch.musicVolume??musicVolume,
+        sfxVolume:patch.sfxVolume??sfxVolume
+      });
+    }
+    update(patch); // SettingsContext persists and synchronizes with the full settings page.
+  };
+  const previewMusic=()=>{
+    setQuickMuted(false);
+    audioRef.current.setPreferences({musicEnabled,sfxEnabled,musicVolume,sfxVolume});
+    audioRef.current.previewMusic(game.feedback.musicTheme);
+  };
+  const previewSfx=()=>{
+    setQuickMuted(false);
+    audioRef.current.setPreferences({musicEnabled,sfxEnabled,musicVolume,sfxVolume});
+    audioRef.current.previewSfx();
+  };
   const togglePause=()=>{
     const g=gameRef.current;
-    if(!g.playing)return;
+    if(!g.playing||quickSettingsOpen)return;
     g.paused=!g.paused;setPaused(g.paused);
     if(g.paused)audioRef.current.pause();else audioRef.current.resume();
   };
@@ -279,8 +326,12 @@ export function GameStage({game}: {game: GameDefinition}) {
   };
   useEffect(()=>{
     const handleVisibility=()=>{
-      if(document.hidden && gameRef.current.playing){
-        gameRef.current.paused=true;audioRef.current.pause();setPaused(true);
+      if(document.hidden){
+        // Do not auto-resume after a tab was backgrounded while settings were open.
+        resumeAfterSettingsRef.current=false;
+        if(gameRef.current.playing){
+          gameRef.current.paused=true;audioRef.current.pause();setPaused(true);
+        }
       }
     };
     const handleFullscreen=()=>setFullscreen(!!document.fullscreenElement);
@@ -289,6 +340,14 @@ export function GameStage({game}: {game: GameDefinition}) {
     return()=>{document.removeEventListener("visibilitychange",handleVisibility);
       document.removeEventListener("fullscreenchange",handleFullscreen);};
   },[]);
+  useEffect(()=>{
+    if(!quickSettingsOpen)return;
+    const handleEscape=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"){event.preventDefault();closeQuickSettings();}
+    };
+    document.addEventListener("keydown",handleEscape);
+    return()=>document.removeEventListener("keydown",handleEscape);
+  },[quickSettingsOpen]);
   return <main className="play-shell">
     <div className="play-topbar">
       <Link to="/games" className="play-exit" aria-label="게임 탐색으로 돌아가기"><span>←</span> {game.title}</Link>
@@ -298,8 +357,8 @@ export function GameStage({game}: {game: GameDefinition}) {
           aria-label={quickMuted?"사운드 켜기":"사운드 잠시 끄기"}>
           {quickMuted?"🔇":"🔊"}
         </button>
-        <Link to="/settings" title="설정 페이지로 이동하면 카메라와 게임이 종료됩니다.">⚙ 설정</Link>
-        {phase==="ready" && <button type="button" onClick={()=>void toggleCamera()} title="카메라 전환">↻ 카메라</button>}
+        <button type="button" onClick={openQuickSettings} aria-label="게임 간편 설정 열기">⚙ 설정</button>
+        {phase==="ready" && <button type="button" onClick={()=>void toggleCamera()} disabled={quickSettingsOpen} title="카메라 전환">↻ 카메라</button>}
         <button type="button" onClick={()=>void toggleFullscreen()}>{fullscreen?"⤢ 전체 화면 종료":"⛶ 전체 화면"}</button>
       </div>
     </div>
@@ -307,7 +366,13 @@ export function GameStage({game}: {game: GameDefinition}) {
       <div className="stage-top"><span className="live-indicator">
         <b className={phase==="ready"?"on":""}/>
         {phase==="ready"?(detected?(palmTracking&&preciseHands?"관절 + 손바닥 추적 중":"관절 추적 중"):"카메라 연결됨"):phase==="loading"?"준비 중":"카메라 꺼짐"}
-        </span><span>{game.title} · {game.duration}</span></div>
+        </span>
+        <div className="stage-quick-actions">
+          <span>{game.title} · {game.duration}</span>
+          <button type="button" ref={quickSettingsButtonRef} className="stage-quick-settings-button"
+            onClick={openQuickSettings} aria-label="게임 간편 설정 열기">⚙</button>
+        </div>
+      </div>
       <div className="stage play-stage" ref={wrapRef}>
         <video ref={videoRef} className="source-video" playsInline muted aria-hidden="true"/>
         <canvas ref={canvasRef} aria-label="카메라 영상과 움직임을 이용한 게임 화면"/>
@@ -328,10 +393,10 @@ export function GameStage({game}: {game: GameDefinition}) {
           </span>}
           {!playing&&bestScore>0&&<span className="hud-best"><small>BEST</small><b>{bestScore.toLocaleString()}</b></span>}
         </div>}
-        {phase==="ready" && playing && paused && <div className="paused-overlay">
+        {phase==="ready" && playing && paused && !quickSettingsOpen && <div className="paused-overlay">
           <strong>일시정지</strong><p>준비되면 게임을 계속하세요.</p>
           <button className="primary" onClick={togglePause}>▶ 계속하기</button></div>}
-        {phase==="ready" && finished && <div className="result game-result">
+        {phase==="ready" && finished && !quickSettingsOpen && <div className="result game-result">
           <strong>🏆 게임 완료!</strong>
           <span className="result-score">{score.toLocaleString()}</span>
           <p>FINAL SCORE {newBest&&<b className="new-record">★ NEW PERSONAL BEST</b>}</p>
@@ -345,15 +410,19 @@ export function GameStage({game}: {game: GameDefinition}) {
             <Link className="secondary" to="/games">다른 게임 보기 →</Link>
           </div>
         </div>}
+        {quickSettingsOpen && <QuickSettingsOverlay
+          settings={settings} update={updateQuickSettings}
+          onClose={closeQuickSettings} onPreviewMusic={previewMusic}
+          onPreviewSfx={previewSfx} theme={game.feedback.musicTheme}/>}
       </div>
       <div className="play-stage-bottom">
         <span>{phase==="ready"?(detected?"손·발·머리의 터치 영역으로 풍선을 터뜨려요":"몸 전체가 보이도록 한 걸음 물러서세요"):message}</span>
         <div className="actions">{phase==="ready" && <>
           {playing ? <>
-            <button className="secondary" onClick={togglePause}>{paused?"▶ 계속":"Ⅱ 일시정지"}</button>
-            <button className="secondary" onClick={end}>■ 종료</button>
+            <button className="secondary" disabled={quickSettingsOpen} onClick={togglePause}>{paused?"▶ 계속":"Ⅱ 일시정지"}</button>
+            <button className="secondary" disabled={quickSettingsOpen} onClick={end}>■ 종료</button>
           </> : <button className="primary" disabled={!detected} onClick={begin}>▶ {finished?"다시 시작":"게임 시작"}</button>}
-          <button className="secondary" onClick={stop}>카메라 끄기</button>
+          <button className="secondary" disabled={quickSettingsOpen} onClick={stop}>카메라 끄기</button>
         </>}</div>
       </div>
       <div className="play-mode-picker" aria-label="화면 표시 모드 빠른 변경">
