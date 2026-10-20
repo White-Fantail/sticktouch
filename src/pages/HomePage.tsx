@@ -30,7 +30,7 @@ export function HomePage() {
     </section>
     <section className="section-block">
       <div className="section-heading"><div><span className="kicker">START PLAYING</span><h2>추천 게임</h2></div><Link to="/games" className="see-all">모든 게임 보기 →</Link></div>
-      <div className="catalog-grid">{GAMES.map(game => <GameCard key={game.id} game={game}/>)}</div>
+      <div className="catalog-grid">{GAMES.slice(0,6).map(game => <GameCard key={game.id} game={game}/>)}</div>
     </section>
     <section className="how-it-works">
       <h2>3단계면 충분해요</h2>

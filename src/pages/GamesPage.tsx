@@ -12,7 +12,7 @@ export function GamesPage() {
     <section className="catalog-filter" aria-label="게임 검색 및 필터">
       <label className="search-field"><span aria-hidden="true">⌕</span><input aria-label="게임 검색" placeholder="게임 이름이나 설명 검색" value={query} onChange={e=>setQuery(e.target.value)}/></label>
       <div className="filter-chips" aria-label="게임 카테고리">
-        {(["all", "touch", "catch", "pose"] as const).map(id =>
+        {(["all", "touch", "catch", "pose", "dodge", "move"] as const).map(id =>
           <button key={id} type="button" className={category === id ? "chip active" : "chip"} aria-pressed={category === id} onClick={()=>setCategory(id)}>
             {id === "all" ? "전체" : CATEGORY_LABELS[id]}</button>)}
       </div>

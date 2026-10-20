@@ -4,6 +4,7 @@ import {paint} from "./renderer";
 import {fruitCameraBox,fruitCatchY} from "../games/fruit-catch/game";
 import {poseTarget,POSE_HOLD_SECONDS,type PoseName} from "../games/pose-challenge/game";
 import type {GameRound} from "../games/runtime";
+import {paintMiniScene} from "../games/mini-arcade/scene";
 
 export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,
   pose:Landmark[]|undefined,points:Point[],view:Viewport,round:GameRound,
@@ -16,6 +17,9 @@ export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoEleme
     case "pose-challenge":
       paint(ctx,video,pose,[],points,view,mode,rings);
       paintPoseGuide(ctx,round.state,width,height);return;
+    case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
+      paint(ctx,video,pose,[],points,view,mode,rings);
+      paintMiniScene(ctx,round.state,width,height);return;
   }
 }
 type FruitState=Extract<GameRound,{kind:"fruit-catch"}>["state"];

@@ -187,3 +187,10 @@
 .quick-diagnostics h3{margin:0 0 9px;font-size:13px;color:#b7f6e2}
 .quick-diagnostics-values{display:flex;gap:9px 16px;flex-wrap:wrap;color:#afc0d7;font-size:11px}
 .quick-diagnostics-values b{color:#94efd8;font-weight:800}
+
+/* Compact mini-arcade categories are discoverable in the same responsive catalog. */
+.game-art--mole{background:radial-gradient(circle at 50% 30%,#745a49,#302a46 70%)}
+.game-art--color{background:radial-gradient(circle at 35% 40%,#bc6c85,#335383 66%,#192742)}
+.game-art--star{background:radial-gradient(circle at 50% 20%,#6c5aab,#202a54 70%)}
+.game-art--meteor{background:radial-gradient(circle at 40% 28%,#a4543f,#362b47 70%)}
+.game-art--freeze{background:radial-gradient(circle at 60% 20%,#4d91b3,#2d4669 70%)}

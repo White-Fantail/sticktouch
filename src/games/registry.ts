@@ -1,6 +1,6 @@
 import type {GameFeelProfile} from "../engine/game-feel";
 import type {MusicTheme} from "../engine/audio";
-export type GameCategory = "touch" | "catch" | "pose";
+export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move";
 export type GameStatus = "available" | "coming-soon";
 export interface GameDefinition {
   id: string;
@@ -28,11 +28,31 @@ export const GAMES: readonly GameDefinition[] = [
   {id:"pose-challenge", title:"포즈 챌린지", tagline:"동작을 따라 해 보세요!",
    description:"다섯 가지 목표 자세를 따라 하고 0.85초 유지해 콤보를 이어 가세요.",
    category:"pose", status:"available", duration:"60초", bodyParts:"온몸",
-   artwork:"pose", emoji:"🕺", feedback:{musicTheme:"rhythm"}}
+   artwork:"pose", emoji:"🕺", feedback:{musicTheme:"rhythm"}},
+  {id:"mole-whack",title:"두더지 잡기",tagline:"두더지가 쏙! 빠르게 터치!",
+   description:"아홉 개 구멍에서 튀어나오는 두더지를 손바닥으로 잡아보세요.",
+   category:"touch",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"mole",emoji:"🐹",feedback:{musicTheme:"pop"}},
+  {id:"color-match",title:"색깔 맞히기",tagline:"불러주는 색을 찾아라!",
+   description:"화면에 표시된 색을 보고 빨강·파랑·노랑 중 정답을 손으로 터치하세요.",
+   category:"touch",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"color",emoji:"🎨",feedback:{musicTheme:"rhythm"}},
+  {id:"star-hunt",title:"별 사냥",tagline:"반짝이는 별을 잡아라!",
+   description:"이리저리 움직이는 별을 손으로 잡아 콤보를 이어가세요.",
+   category:"touch",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"star",emoji:"⭐",feedback:{musicTheme:"fruit"}},
+  {id:"meteor-dodge",title:"운석 피하기",tagline:"조심! 양쪽에서 운석이!",
+   description:"좌우로 날아오는 운석을 손으로 피하면 득점합니다.",
+   category:"dodge",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"meteor",emoji:"☄️",feedback:{musicTheme:"pop"}},
+  {id:"freeze-dance",title:"얼음땡",tagline:"움직여! 그리고 멈춰!",
+   description:"초록 불일 때 손을 움직이고 빨간 불에서는 멈추는 반응 게임입니다.",
+   category:"move",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"freeze",emoji:"🧊",feedback:{musicTheme:"rhythm"}}
 ] as const;
 export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);
 }
 export const CATEGORY_LABELS: Record<GameCategory, string> = {
-  touch:"터치", catch:"받기", pose:"리듬 / 포즈"
+  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기"
 };
