@@ -1,4 +1,4 @@
-import {hitBalloons,newBalloon,stepBalloons,type Balloon,type Point} from "../../core";
+import {hitBalloons,newBalloon,stepBalloons,type Balloon,type Point} from "../../core.ts";
 
 export type BalloonRound={
   playing:boolean;

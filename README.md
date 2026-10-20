@@ -166,3 +166,22 @@ Codespaces는 일시적인 개발 서버이지 상시 운영되는 배포 URL이
 - 보충: 해당 규칙은 이 프로젝트의 Git 연동 자동 배포 정책입니다. **명시적 수동 배포, Deployment Hook, 다른 프로젝트의 자동 빌드**까지 차단하는 것은 아닙니다.
 
 근거: [Vercel Git configuration](https://vercel.com/docs/project-configuration/git-configuration).
+
+## 멀티게임 화면 구조 (2026-10-21)
+
+기존 단일 데모 화면을 아래 네 개의 URL로 분리했습니다.
+
+| URL | 기능 |
+| --- | --- |
+| `/` | StickTouch 홈, 추천 게임, 바로 시작 |
+| `/games` | 카테고리 필터, 검색, 게임 카드, 준비 중 상태 |
+| `/play/balloon-pop` | 풍선 게임 카메라 시작·인식·일시정지·재개·종료·결과·전체 화면 |
+| `/settings` | 화면 표시, 터치 크기, 카메라 방향, 정밀 손 추적, 입력 진단 |
+
+- **카메라 권한은 게임 플레이 페이지에서 사용자가 명시적으로 시작할 때만 요청합니다.** 홈/탐색/설정 진입에서 카메라를 자동 실행하지 않습니다. 플레이 페이지에서 벗어나면 스트림·MediaPipe 인스턴스·AnimationFrame을 정리합니다.
+- **표시 모드 빠른 전환**은 플레이 아래쪽에 남기고, 자세한 설정 UI는 `/settings`로 이전했습니다. 기존 손바닥 정밀 ON/OFF, 원 표시, 실제 판정 크기 옵션을 유지합니다.
+- 공통 설정은 **현재 브라우저의 `localStorage`** 에 자동 저장됩니다(`sticktouch:settings:v1`). 영상·관절 데이터·게임 녹화는 저장하지 않습니다.
+- `src/games/registry.ts`에 게임 카탈로그를 등록합니다. 현재 실행 가능한 게임은 **풍선 터뜨리기** 한 개이며, 과일 바구니/포즈 챌린지는 개발 예정으로 노출합니다. 그 외 게임을 플레이할 수 있는 것처럼 표현하지 않습니다.
+- `src/app/App.tsx`와 `src/app/navigation.tsx`가 SPA 화면 전환을 담당합니다. `src/components/GameStage.tsx`가 카메라·추론 수명주기, `src/engine/renderer.ts`가 화면 그리기, `src/games/balloon-pop/game.ts`가 풍선 게임 규칙을 맡습니다. `src/settings/*`가 공통 설정을 관리합니다.
+- Vercel의 `vercel.json`에 SPA deep-link fallback을 추가했습니다. 기존 **`git.deploymentEnabled.dev = false`** 자동 Preview 빌드 비활성화는 그대로 유지합니다. `main` 병합은 별도 승인 전까지 수행하지 않습니다.
+- 게임별 난이도/시간, 사운드, 리더보드는 향후 기능입니다. 별도의 게임 설정 컴포넌트를 추가하기 쉬운 구조만 준비한 상태입니다.

@@ -172,3 +172,16 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 근거: [Vercel Git configuration](https://vercel.com/docs/project-configuration/git-configuration).
 
 릴리스 정책: `dev` Vercel 자동 배포 비활성화 상태를 유지하고, `main` 반영 직전에 GitHub Actions 성공 및 strict fast-forward 관계를 확인한다. `vercel.json`의 `git.deploymentEnabled` 설정을 임의로 삭제·변경하면 안 된다.
+
+## 2026-10-21 — 멀티게임 페이지 구조 결정
+
+- 제품은 **4개 독립 화면**으로 구성: 홈 `/`, 게임 탐색 `/games`, 플레이 `/play/:gameId`, 설정 `/settings`. PC/모바일은 단일 React + Vite 코드베이스를 공유.
+- 설정값은 `src/settings/settings.ts`와 `SettingsContext.tsx`를 통해 관리하며 `localStorage`로 저장. 표시 모드(카메라 / 카메라+스틱맨 / 스틱맨), 원 표시, 터치 크기, Hand 정밀 추적, 기본 카메라 방향, 진단 표시. 이전의 판정/시각 옵션 독립성 보장.
+- `src/games/registry.ts`는 게임 메타데이터 및 출시 상태의 단일 소스. **현 단계에서 `balloon-pop`만 available**. 미완성 게임은 coming-soon. 없는 구현을 가동 중이라고 주장하지 말 것.
+- 홈/목록/설정 페이지에서는 카메라를 켜지 않고, `GameStage` 마운트 후 사용자 클릭으로만 카메라 시작. 플레이 이탈 시 `getUserMedia` 트랙, Pose/Hand Landmarker, rAF를 모두 해제.
+- `GameStage`가 카메라와 인식 수명주기를 관리하고, `engine/renderer.ts`는 Canvas 표현, `games/balloon-pop/game.ts`는 게임 시간·스폰·충돌·점수 규칙을 관리한다. 공통 `core.ts`와 `hands.ts`는 종전과 동일한 판정 알고리즘을 유지.
+- 플레이 UI는 몰입형으로 최소화하고 일시정지/재개/종료·결과·전체 화면·표시 모드 빠른 전환을 제공. 게임 진행 중 탭이 숨겨지면 자동 일시정지하며 사용자가 재개.
+- 설정 페이지의 게임별 시간·난이도, 사운드, 리더보드는 **미구현**이며 향후 독립 게임 설정 UI로 추가. 자동 저장은 표시/카메라 공통 옵션에 한정.
+- Vercel SPA 라우팅 fallback 사용 시 기존 `git.deploymentEnabled.dev=false` 와 `main=true`를 변경하지 말 것.
+- 새로운 게임을 추가할 때 `registry.ts` 상태를 변경하기 전에 실제 게임 로직, 카메라 레이아웃, 입력 부위, 테스트를 먼저 구현하고 검증.
+- 검증: `npm run test && npm run check && npm run build`, 브라우저 Back/Forward, URL 직접 접속, 카메라 재진입/언마운트, 모바일 화면, 정확도/프레임 지표 확인. 자동 CI 통과가 실기기 검증을 뜻하지 않는다.
