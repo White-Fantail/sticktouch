@@ -59,7 +59,7 @@ export class AudioManager {
       this.noteIndex++;this.nextNote+=beatLength;
     }
   }
-  cue(type:GameEventType|"milestone"|"start"|"finish"){
+  cue(type:GameEventType|"milestone"|"start"|"finish"|"countdown"){
     const ctx=this.context;
     if(!ctx||ctx.state!=="running"||this.mutedByPause||!this.prefs.sfxEnabled)return;
     const t=ctx.currentTime;
@@ -68,6 +68,8 @@ export class AudioManager {
       this.tone(type==="perfect"?1120:790,t+0.045,0.08,"sine",this.fxGain,0.45);
     }else if(type==="milestone"){
       [660,830,990].forEach((frequency,i)=>this.tone(frequency,t+i*.075,.16,"triangle",this.fxGain,0.7));
+    }else if(type==="countdown"){
+      this.tone(740,t,.075,"sine",this.fxGain,.35);
     }else if(type==="finish"){
       [784,587,392].forEach((frequency,i)=>this.tone(frequency,t+i*.13,.17,"triangle",this.fxGain,0.65));
     }else if(type==="start"){
