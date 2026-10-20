@@ -206,3 +206,13 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - 화면 모드와 판정 크기 등 공통 옵션은 기존 `/settings` 또는 플레이를 멈추는 ⚙ `QuickSettingsOverlay`에서 설정하며 같은 SettingsContext/localStorage를 사용한다.
 - 고급 설정의 `diagnostics` 옵션은 유지한다. 활성화된 경우에만 게임 중 간편 설정 모달 내부에서 모델 상태 및 좌우 손 HAND/POSE 앵커 출처를 확인할 수 있다. 디버그 UI를 플레이 화면 하단에 다시 배치하지 않는다.
 - fullscreen 진입/해제와 모바일 반응형 모두 같은 원칙을 유지한다. 게임 점수·콤보 HUD, 카메라/추적/타이머 및 빠른 설정의 일시정지/복귀 의미는 변경하지 않는다.
+
+
+## 2026-10-21 — 과일 바구니·포즈 챌린지 (dev)
+
+- `src/games/fruit-catch/game.ts`: 60초 낙하 게임, 양손/한 손의 가로 위치로 바구니를 조작, 과일 수집/실패/폭탄 피해 GameEvent. 추적 상실 시 라운드의 시간과 물체 물리가 멈추며 실패를 만들지 않음.
+- `src/games/pose-challenge/game.ts`: 5가지 상대적 2D 관절 자세, 0.85초 유지, 8초 제한, Perfect/Good/Miss 사건. 필요한 관절이 신뢰할 수 없으면 점수/타이머 진행을 멈춤.
+- `src/games/runtime.ts`: 등록 게임별 상태 생성·시간 갱신·추적 상태·카메라 viewport 분기. `src/engine/game-scenes.ts`: 과일 게임의 하단 축소 카메라, 바구니/과일과 포즈 가이드 그림. `src/core.ts`는 기존 cover 기본값을 유지하면서 `fit: contain`을 추가해 축소된 카메라의 미러와 히트포인트 매핑 일치.
+- `src/components/GameStage.tsx`는 한 게임 전용이 아닌 세 게임의 공통 라이프사이클(카메라/추론, 일시정지, 음악과 효과, 점수, 기록)을 실행. 게임별 규칙은 공통 GameFeel 점수 계산에 직접 관여하지 않음.
+- 카탈로그 `src/games/registry.ts`: `fruit-catch`와 `pose-challenge`의 출시 상태를 `available`로 변경, 시간 60초. 실기기 검증은 별도이며 dev 브랜치 작업을 main에 직접 커밋하거나 자동 병합하지 말 것.
+- 이전 절의 'balloon-pop만 available', '미구현' 표기는 **당시의 이력**으로 유지되며 지금 dev의 실제 상태는 본 절을 기준으로 판단할 것.
