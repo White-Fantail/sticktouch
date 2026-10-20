@@ -48,7 +48,27 @@ export const GAMES: readonly GameDefinition[] = [
   {id:"freeze-dance",title:"얼음땡",tagline:"움직여! 그리고 멈춰!",
    description:"초록 불일 때 손을 움직이고 빨간 불에서는 멈추는 반응 게임입니다.",
    category:"move",status:"available",duration:"60초",bodyParts:"양손",
-   artwork:"freeze",emoji:"🧊",feedback:{musicTheme:"rhythm"}}
+   artwork:"freeze",emoji:"🧊",feedback:{musicTheme:"rhythm"}},
+  {id:"rhythm-pads",title:"리듬 패드",tagline:"딱 맞는 순간에 터치!",
+   description:"4개 레인으로 떨어지는 노트를 박자에 맞춰 손으로 터치하세요. PERFECT 타이밍을 노려보세요.",
+   category:"pose",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"color",emoji:"🥁",feedback:{musicTheme:"rhythm"}},
+  {id:"shield-guard",title:"에너지 실드",tagline:"중앙 코어를 보호해요!",
+   description:"사방에서 코어로 날아오는 에너지 구슬을 양손으로 막아 콤보를 이어가세요.",
+   category:"dodge",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"meteor",emoji:"🛡️",feedback:{musicTheme:"pop"}},
+  {id:"memory-sequence",title:"기억력 패턴",tagline:"순서를 보고 기억하세요!",
+   description:"깜빡이는 4가지 색상의 순서를 기억한 뒤 손바닥으로 차례차례 눌러보세요.",
+   category:"touch",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"color",emoji:"🧠",feedback:{musicTheme:"rhythm"}},
+  {id:"laser-lane",title:"레이저 통로",tagline:"안전한 틈으로 피하세요!",
+   description:"예고된 레이저의 안전 통로에 손을 옮겨 충돌 없이 통과하면 득점해요.",
+   category:"dodge",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"meteor",emoji:"⚡",feedback:{musicTheme:"pop"}},
+  {id:"parcel-sort",title:"택배 분류",tagline:"잡아서 같은 색 상자로!",
+   description:"손으로 택배를 집어 같은 색 배송함까지 움직여 놓으세요.",
+   category:"move",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"fruit",emoji:"📦",feedback:{musicTheme:"fruit"}}
 ] as const;
 export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);

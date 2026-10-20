@@ -4,12 +4,14 @@ import {createBalloonRound,stepBalloonRound,type BalloonRound} from "./balloon-p
 import {createFruitRound,fruitCameraBox,stepFruitRound,type FruitRound} from "./fruit-catch/game.ts";
 import {createPoseRound,matchesPose,poseTarget,stepPoseRound,type PoseRound} from "./pose-challenge/game.ts";
 import {createMiniRound,stepMiniRound,type MiniGameId,type MiniRound} from "./mini-arcade/game.ts";
+import {createAdvancedRound,stepAdvancedRound,type AdvancedGameId,type AdvancedRound} from "./advanced-arcade/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
   | {kind:"fruit-catch";state:FruitRound}
   | {kind:"pose-challenge";state:PoseRound}
-  | {kind:MiniGameId;state:MiniRound};
+  | {kind:MiniGameId;state:MiniRound}
+  | {kind:AdvancedGameId;state:AdvancedRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=60;
 export function createGameRound(id:string):GameRound {
@@ -18,6 +20,8 @@ export function createGameRound(id:string):GameRound {
     case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound()};
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
       return {kind:id,state:createMiniRound(id)};
+    case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
+      return {kind:id,state:createAdvancedRound(id)};
     default:return {kind:"balloon-pop",state:createBalloonRound()};
   }
 }
@@ -44,6 +48,8 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
     case "pose-challenge":return matchesPose(pose,poseTarget(round.state).id)!==null;
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
       return points.some(p=>p.part==="leftHand"||p.part==="rightHand");
+    case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
+      return points.some(p=>p.part==="leftHand"||p.part==="rightHand");
     default:return points.length>0;
   }
 }
@@ -55,6 +61,8 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
     case "pose-challenge":return stepPoseRound(round.state,dt,pose,width,height);
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
       return stepMiniRound(round.state,dt,width,height,points);
+    case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
+      return stepAdvancedRound(round.state,dt,width,height,points);
   }
 }
 export function gameHint(id:string){
@@ -66,6 +74,11 @@ export function gameHint(id:string){
     case "star-hunt":return "움직이는 별을 손으로 잡아보세요. 시간이 지나면 사라져요.";
     case "meteor-dodge":return "날아오는 운석에 손이 닿지 않게 피하세요. 지나간 운석마다 득점!";
     case "freeze-dance":return "초록 불엔 손을 크게 움직이고 빨간 불엔 그대로 멈추세요!";
+    case "rhythm-pads":return "아래 패드에 노트가 도착할 때마다 손을 새로 넣어 터치하세요. 누르고만 있으면 점수가 나지 않아요.";
+    case "shield-guard":return "사방에서 중앙으로 날아오는 구슬을 손으로 막고 코어를 지키세요!";
+    case "memory-sequence":return "반짝이는 색상의 순서를 외우고, 안내가 끝나면 같은 순서로 손을 넣어 눌러요.";
+    case "laser-lane":return "레이저가 내려오기 전 초록색 안전 틈에 양손을 옮겨 피해 보세요.";
+    case "parcel-sort":return "중앙 상자를 손으로 집고, 손을 움직여 같은 색의 배송함에 넣어요.";
     default:return "손·발·머리의 터치 영역으로 풍선을 터뜨려요";
   }
 }
