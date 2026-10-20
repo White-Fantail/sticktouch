@@ -8,8 +8,8 @@ import {pauseForSettings,restoreAfterSettings} from "../engine/quick-pause";
 import {useSettings} from "../settings/SettingsContext";
 import {Link} from "../app/navigation";
 import {type GameDefinition} from "../games/registry";
-import {paint} from "../engine/renderer";
-import {createBalloonRound,stepBalloonRound,type BalloonRound} from "../games/balloon-pop/game";
+import {createGameRound,stepGameRound,gameViewport,gameTracking,gameHint,GAME_SECONDS} from "../games/runtime";
+import {paintGameScene} from "../engine/game-scenes";
 import {GameFeelSession,type GameStats} from "../engine/game-feel";
 import {AudioManager} from "../engine/audio";
 import {EffectManager} from "../engine/effects";
@@ -20,7 +20,7 @@ type Phase = "idle" | "loading" | "ready" | "error";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
-const ROUND_SECONDS = 60;
+const ROUND_SECONDS = GAME_SECONDS;
 const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간으로 인식합니다.";
 
 export function GameStage({game}: {game: GameDefinition}) {
@@ -62,7 +62,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   const sessionRef=useRef(0);
   const settingsRef=useRef({mode,rings,hitbox,side,preciseHands,effectsQuality});
   const reducedMotionRef=useRef(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false);
-  const gameRef=useRef<BalloonRound>(createBalloonRound(ROUND_SECONDS));
+  const gameRef=useRef(createGameRound(game.id));
   const feelRef=useRef(new GameFeelSession(game.feedback.scoreProfile));
   const audioRef=useRef(new AudioManager());
   const effectsRef=useRef(new EffectManager());
@@ -87,7 +87,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     trackerRef.current?.close();trackerRef.current=null;
     handTrackerRef.current?.close();handTrackerRef.current=null;
     handsRef.current=[];smoothRef.current=[];posesRef.current=undefined;
-    gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];
+    gameRef.current.state.playing=false;gameRef.current.state.paused=false;
     feelRef.current.reset();effectsRef.current.reset();audioRef.current.destroy();
     resumeAfterSettingsRef.current=false;
     if(mountedRef.current){setQuickSettingsOpen(false);setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
@@ -190,7 +190,7 @@ export function GameStage({game}: {game: GameDefinition}) {
           }
           if(didInfer)lastVideoTime=video.currentTime;
         }
-        const v:Viewport={width,height,videoWidth:video.videoWidth,videoHeight:video.videoHeight,mirror:s.side==="user"};
+        const v:Viewport=gameViewport(game.id,width,height,video.videoWidth,video.videoHeight,s.side==="user");
         const anchors=s.preciseHands && handDetector && now-lastHandSample<350
           ?matchHandPalms(posesRef.current,handsRef.current):{};
         const palm=!!(anchors.left||anchors.right);
@@ -202,11 +202,11 @@ export function GameStage({game}: {game: GameDefinition}) {
         const right=points.find(p=>p.part==="rightHand")?.source??"none";
         const sourceKey=left+"/"+right;
         if(sourceKey!==lastSourceKey){lastSourceKey=sourceKey;setHandSources({left,right});}
-        const found=points.length>0;
+        const found=gameTracking(gameRef.current,points,posesRef.current);
         if(found!==lastDetected){lastDetected=found;setDetected(found);}
-        const g=gameRef.current;
+        const g=gameRef.current.state;
         if(g.playing && !g.paused && !document.hidden){
-          const result=stepBalloonRound(g,dt,width,height,points);
+          const result=stepGameRound(gameRef.current,dt,width,height,points,posesRef.current,v);
           if(result.events.length){
             for(const event of result.events){
               const feedback=feelRef.current.dispatch(event);
@@ -236,7 +236,7 @@ export function GameStage({game}: {game: GameDefinition}) {
           }
         }
         if(!g.playing || !g.paused)effectsRef.current.update(dt);
-        paint(ctx,video,posesRef.current,g.balls,points,v,s.mode,s.rings);
+        paintGameScene(ctx,video,posesRef.current,points,v,gameRef.current,s.mode,s.rings,width,height);
         effectsRef.current.draw(ctx,width,height,reducedMotionRef.current?"off":s.effectsQuality);
       };
       animationRef.current=requestAnimationFrame(tick);
@@ -257,8 +257,8 @@ export function GameStage({game}: {game: GameDefinition}) {
   };
   const begin=()=>{
     if(phase!=="ready" || !detected)return;
-    const g=gameRef.current;
-    Object.assign(g,createBalloonRound(ROUND_SECONDS));
+    gameRef.current=createGameRound(game.id);
+    const g=gameRef.current.state;
     feelRef.current.reset();effectsRef.current.reset();
     audioRef.current.start(game.feedback.musicTheme);audioRef.current.cue("start");
     g.playing=true;resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);setPaused(false);
@@ -266,7 +266,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
   };
   const end=()=>{
-    gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];setPaused(false);
+    gameRef.current.state.playing=false;gameRef.current.state.paused=false;setPaused(false);
     resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);
     audioRef.current.stopMusic();effectsRef.current.reset();feelRef.current.reset();
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);
@@ -277,7 +277,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   };
   const openQuickSettings=()=>{
     if(quickSettingsOpen)return;
-    const g=gameRef.current;
+    const g=gameRef.current.state;
     resumeAfterSettingsRef.current=pauseForSettings(g);
     if(g.playing){audioRef.current.pause();setPaused(true);}
     setQuickSettingsOpen(true);
@@ -286,7 +286,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     const shouldResume=resumeAfterSettingsRef.current;
     resumeAfterSettingsRef.current=false;
     setQuickSettingsOpen(false);
-    if(restoreAfterSettings(gameRef.current,shouldResume,!document.hidden)){
+    if(restoreAfterSettings(gameRef.current.state,shouldResume,!document.hidden)){
       audioRef.current.resume();setPaused(false);
     }
     quickSettingsButtonRef.current?.focus();
@@ -316,7 +316,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     audioRef.current.previewSfx();
   };
   const togglePause=()=>{
-    const g=gameRef.current;
+    const g=gameRef.current.state;
     if(!g.playing||quickSettingsOpen)return;
     g.paused=!g.paused;setPaused(g.paused);
     if(g.paused)audioRef.current.pause();else audioRef.current.resume();
@@ -332,8 +332,8 @@ export function GameStage({game}: {game: GameDefinition}) {
       if(document.hidden){
         // Do not auto-resume after a tab was backgrounded while settings were open.
         resumeAfterSettingsRef.current=false;
-        if(gameRef.current.playing){
-          gameRef.current.paused=true;audioRef.current.pause();setPaused(true);
+        if(gameRef.current.state.playing){
+          gameRef.current.state.paused=true;audioRef.current.pause();setPaused(true);
         }
       }
     };
@@ -420,7 +420,7 @@ export function GameStage({game}: {game: GameDefinition}) {
           onPreviewSfx={previewSfx} theme={game.feedback.musicTheme}/>}
       </div>
       <div className="play-stage-bottom">
-        <span>{phase==="ready"?(detected?"손·발·머리의 터치 영역으로 풍선을 터뜨려요":"몸 전체가 보이도록 한 걸음 물러서세요"):message}</span>
+        <span>{phase==="ready"?(detected?gameHint(game.id):game.id==="fruit-catch"?"양손이 화면 아래 카메라에 보이도록 해 주세요.":game.id==="pose-challenge"?"목표 자세에 필요한 관절이 보이도록 카메라 거리를 조정해 주세요.":"몸 전체가 보이도록 한 걸음 물러서세요"):message}</span>
         <div className="actions">{phase==="ready" && <>
           {playing ? <>
             <button className="secondary" disabled={quickSettingsOpen} onClick={togglePause}>{paused?"▶ 계속":"Ⅱ 일시정지"}</button>
