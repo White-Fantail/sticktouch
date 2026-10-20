@@ -190,3 +190,12 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 ## 2026-10-21 Game Feel Engine 공통 개발 규칙
 
 게임 모듈은 성공/실패 GameEvent만 발행하며 점수·콤보·사운드·파티클·최고 기록을 직접 계산하거나 출력하지 않는다. 공통 엔진은 src/engine/game-feel.ts, audio.ts, effects.ts, records.ts에 있다. 풍선 게임에서 먼저 통합했고 향후 신규 게임도 같은 이벤트 계약을 사용해야 한다. 카메라 인식 손실로 miss를 발생시키지 않으며 중복 대상/이벤트 점수는 차단한다. Web Audio는 사용자 게임 시작 제스처에서 활성화하고 일시정지/탭 비활성화 및 종료 리소스를 처리한다. 구현/확장 상세: docs/GAME_FEEL_ENGINE.md. 테스트와 실기기 검증을 구분하고 main은 별도 요청 때만 strict fast-forward로 반영한다.
+
+
+### 2026-10-21 — Audio output and quick-settings pause semantics
+
+- src/engine/audio.ts exposes volumeToGain() for independently scaled linear BGM and SFX gains. Audio graph updates happen immediately via setPreferences(), using a short gain ramp. Music synthesis has longer/more frequent notes, and new-user default music volume is 55%; preserve existing local preferences.
+- src/components/QuickSettingsOverlay.tsx is the **in-game** compact settings dialog. Do not navigate to /settings from the game gear; this would unmount GameStage and discard the round. Keep the full settings route/page unchanged for non-game use.
+- The dialog is inside the fullscreen-capable stage, pauses gameplay without stopping the camera or resetting stats, and remembers whether to resume on close. A preexisting manual pause and tab-background pause must NOT auto-resume. ESC and Close restore focus. Helper semantics live in src/engine/quick-pause.ts.
+- All quick controls must write to the exact existing SettingsContext update() so they persist to the same localStorage settings as the full page. Sound volume previews use an audio preview bus independent of gameplay mute, and controls apply immediately to the running audio graph; quick-mute is cleared when explicitly editing sound preferences.
+- Maintain reduced motion, mobile scrollable dialog, and Web Audio user gesture unlock. See tests/audio.test.ts and tests/quick-settings.test.ts. Strict dev-first, main only after user's merge request.
