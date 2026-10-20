@@ -54,7 +54,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   const sessionRef=useRef(0);
   const settingsRef=useRef({mode,rings,hitbox,side,preciseHands,effectsQuality});
   const gameRef=useRef<BalloonRound>(createBalloonRound(ROUND_SECONDS));
-  const feelRef=useRef(new GameFeelSession());
+  const feelRef=useRef(new GameFeelSession(game.feedback.scoreProfile));
   const audioRef=useRef(new AudioManager());
   const effectsRef=useRef(new EffectManager());
   const posesRef=useRef<Landmark[]|undefined>(undefined);
@@ -243,7 +243,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     const g=gameRef.current;
     Object.assign(g,createBalloonRound(ROUND_SECONDS));
     feelRef.current.reset();effectsRef.current.reset();
-    audioRef.current.start("pop");audioRef.current.cue("start");
+    audioRef.current.start(game.feedback.musicTheme);audioRef.current.cue("start");
     g.playing=true;setPaused(false);
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);setNewBest(false);
     setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
