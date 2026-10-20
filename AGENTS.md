@@ -185,3 +185,8 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - Vercel SPA 라우팅 fallback 사용 시 기존 `git.deploymentEnabled.dev=false` 와 `main=true`를 변경하지 말 것.
 - 새로운 게임을 추가할 때 `registry.ts` 상태를 변경하기 전에 실제 게임 로직, 카메라 레이아웃, 입력 부위, 테스트를 먼저 구현하고 검증.
 - 검증: `npm run test && npm run check && npm run build`, 브라우저 Back/Forward, URL 직접 접속, 카메라 재진입/언마운트, 모바일 화면, 정확도/프레임 지표 확인. 자동 CI 통과가 실기기 검증을 뜻하지 않는다.
+
+
+## 2026-10-21 Game Feel Engine 공통 개발 규칙
+
+게임 모듈은 성공/실패 GameEvent만 발행하며 점수·콤보·사운드·파티클·최고 기록을 직접 계산하거나 출력하지 않는다. 공통 엔진은 src/engine/game-feel.ts, audio.ts, effects.ts, records.ts에 있다. 풍선 게임에서 먼저 통합했고 향후 신규 게임도 같은 이벤트 계약을 사용해야 한다. 카메라 인식 손실로 miss를 발생시키지 않으며 중복 대상/이벤트 점수는 차단한다. Web Audio는 사용자 게임 시작 제스처에서 활성화하고 일시정지/탭 비활성화 및 종료 리소스를 처리한다. 구현/확장 상세: docs/GAME_FEEL_ENGINE.md. 테스트와 실기기 검증을 구분하고 main은 별도 요청 때만 strict fast-forward로 반영한다.
