@@ -106,3 +106,6 @@
   .result-actions button,.result-actions a{padding:9px 11px}
 }
 @media(prefers-reduced-motion:reduce){.game-hud .hud-combo{animation:none}}
+
+.game-hud .hud-timer.urgency{border-color:#ff8e7899;background:#4a2029e3}
+.game-hud .hud-timer.urgency b{color:#ffb8a4}
