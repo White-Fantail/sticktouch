@@ -60,7 +60,10 @@ function paint(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, pose: Lan
     ctx.arc(b.x-b.radius*0.25,b.y-b.radius*0.25,b.radius*0.2,0,Math.PI*2);ctx.fill();
   }
   if(showRings) for(const p of points){
-    ctx.fillStyle="rgba(59,238,190,0.12)";ctx.strokeStyle="rgba(88,255,202,.95)";
+    // Cyan means actual Hand Landmarker input; amber means Pose-based palm estimate.
+    const poseHand=(p.part==="leftHand" || p.part==="rightHand") && p.source==="pose";
+    ctx.fillStyle=poseHand?"rgba(255,189,82,0.12)":"rgba(59,238,190,0.12)";
+    ctx.strokeStyle=poseHand?"rgba(255,189,82,.95)":"rgba(88,255,202,.95)";
     ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill();ctx.stroke();
   }
 }
@@ -72,6 +75,7 @@ function App(){
   const [preciseHands,setPreciseHands]=useState(true);
   const [handModelStatus,setHandModelStatus]=useState<"pending"|"ready"|"fallback">("pending");
   const [palmTracking,setPalmTracking]=useState(false);
+  const [handSources,setHandSources]=useState<{left:"hand"|"pose"|"none";right:"hand"|"pose"|"none"}>({left:"none",right:"none"});
   const [hitbox,setHitbox]=useState(100);
   const [side,setSide]=useState<CameraSide>("user");
   const [detected,setDetected]=useState(false);
@@ -105,7 +109,7 @@ function App(){
     handTrackerRef.current?.close();handTrackerRef.current=null;
     handsRef.current=[];smoothRef.current=[];posesRef.current=undefined;
     gameRef.current.playing=false;
-    if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");}
+    if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
   },[]);
   useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
 
@@ -165,7 +169,7 @@ function App(){
       setHandModelStatus(handDetector?"ready":"fallback");
       setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
       let last=performance.now(),lastPoseInference=0,lastHandInference=0,lastVideoTime=-1;
-      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0;
+      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0,lastSourceKey="none/none";
       let handInterval=160;
       const tick=(now:number)=>{
         if(token!==sessionRef.current)return;
@@ -213,6 +217,10 @@ function App(){
         const raw=getHitpoints(posesRef.current,v,s.hitbox,anchors);
         const points=smoothHitpoints(raw,smoothRef.current,dt);
         smoothRef.current=points;
+        const left=points.find(p=>p.part==="leftHand")?.source??"none";
+        const right=points.find(p=>p.part==="rightHand")?.source??"none";
+        const sourceKey=left+"/"+right;
+        if(sourceKey!==lastSourceKey){lastSourceKey=sourceKey;setHandSources({left,right});}
         const found=points.length>0;
         if(found!==lastDetected){lastDetected=found;setDetected(found);}
         const g=gameRef.current;
@@ -293,8 +301,16 @@ function App(){
           <button type="button" className={mode==="both"?"selected":""} aria-pressed={mode==="both"} onClick={()=>setMode("both")}><span>♧</span>영상 + 스틱맨</button>
           <button type="button" className={mode==="stickman"?"selected":""} aria-pressed={mode==="stickman"} onClick={()=>setMode("stickman")}><span>♙</span>스틱맨만</button>
         </div></div>
-        <div className="setting-group"><div className="setting-line"><label htmlFor="precision">손바닥 정밀 추적</label><input id="precision" type="checkbox" checked={preciseHands} onChange={e=>setPreciseHands(e.target.checked)}/></div>
-          <p>{!preciseHands?"기본 Pose 추정만 사용합니다. 느린 기기에서 비교해 보세요.":handModelStatus==="fallback"?"Hand 모델을 로드하지 못해 Pose 손바닥 추정으로 동작합니다.":handModelStatus==="ready"?(palmTracking?"손바닥 21개 지점으로 위치를 계산 중입니다.":"손을 화면에 보여 주세요. 손을 찾지 못하면 Pose로 보완합니다."):"카메라 시작 시 Hand 모델을 함께 준비합니다."}</p>
+        <div className="setting-group"><div className="setting-line"><label htmlFor="precision">Hand 정밀 모델 사용</label><input id="precision" type="checkbox" checked={preciseHands} onChange={e=>setPreciseHands(e.target.checked)}/></div>
+          <p>{!preciseHands?"OFF: Hand 정밀 추론 중지 · Pose만으로 손바닥 중심을 추정합니다.":handModelStatus==="fallback"?"Hand 모델 실행에 실패해 Pose 추정으로 계속 플레이합니다.":handModelStatus==="ready"?(palmTracking?"ON: Hand 모델이 손바닥 중심을 계산하고 있어요.":"ON: Hand 모델 준비 완료 · 손을 찾지 못하면 Pose로 보완합니다."):"ON: 카메라 시작 시 Hand 모델을 준비합니다."}</p>
+          <div className="hand-source-status" aria-label="실제 손바닥 앵커 입력">
+            <div className="source-heading">실제 사용 중인 손 앵커</div>
+            {(["left","right"] as const).map(side=><div className="source-entry" key={side}>
+              <span>{side==="left"?"왼손":"오른손"}</span>
+              <span className={handSources[side]==="hand"?"source-hand":handSources[side]==="pose"?"source-pose":"source-none"}>{handSources[side]==="hand"?"● Hand 21점":handSources[side]==="pose"?"● Pose 추정":"— 인식 없음"}</span>
+            </div>)}
+            <div className="source-legend"><span className="legend-hand">● Hand 모델</span><span className="legend-pose">● Pose 추정</span><span>원 색상으로 구분</span></div>
+          </div>
         </div>
         <div className="setting-group"><div className="setting-line"><label htmlFor="rings">터치 포인트 표시</label><input id="rings" type="checkbox" checked={rings} onChange={e=>setRings(e.target.checked)}/></div><p>손·발·머리의 충돌 영역을 원으로 표시해요.</p></div>
         <div className="setting-group"><div className="setting-line"><label htmlFor="size">터치 판정 크기</label><output htmlFor="size">{hitbox}%</output></div>

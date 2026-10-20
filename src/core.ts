@@ -1,7 +1,8 @@
 /** Pure camera-to-game geometry and hit detection shared by desktop and mobile. */
 export type Landmark = { x: number; y: number; visibility?: number; presence?: number };
 export type BodyPart = "leftHand" | "rightHand" | "head" | "leftFoot" | "rightFoot";
-export type Point = { part: BodyPart; x: number; y: number; radius: number };
+export type AnchorSource = "hand" | "pose";
+export type Point = { part: BodyPart; x: number; y: number; radius: number; source?: AnchorSource };
 /** Camera-normalized hand centers, assigned to the same sides as the Pose wrist indices. */
 export type HandAnchors = Partial<Record<"left" | "right", Pick<Landmark, "x" | "y">>>;
 export type Viewport = { width: number; height: number; videoWidth: number; videoHeight: number; mirror: boolean };
@@ -68,7 +69,8 @@ export function getHitpoints(
     if (!anchor || !reliable(anchor)) continue;
     const xy = mapPoint(anchor.x, anchor.y, v);
     if (xy.x < 0 || xy.x > v.width || xy.y < 0 || xy.y > v.height) continue;
-    points.push({ part: side === "left" ? "leftHand" : "rightHand", ...xy, radius });
+    points.push({ part: side === "left" ? "leftHand" : "rightHand", ...xy, radius,
+      source: handAnchors[side] ? "hand" : "pose" });
   }
   const others: ReadonlyArray<readonly [BodyPart, number]> = [
     ["head",0], ["leftFoot",31], ["rightFoot",32]

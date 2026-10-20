@@ -104,3 +104,16 @@ test("fallback transition interpolates instead of teleporting the hitpoint",()=>
   assert.ok(next.x>200 && next.x<300);
   assert.equal(next.radius,35);
 });
+
+test("turning Hand precision off keeps palm tracking via Pose but changes the true source",()=>{
+  const pose=makePose();
+  const precise=matchHandPalms(pose,[makeHand(0.25,0.35)]);
+  const hand=getHitpoints(pose,view,100,precise).find(p=>p.part==="leftHand")!;
+  const fallback=getHitpoints(pose,view,100).find(p=>p.part==="leftHand")!;
+  assert.equal(hand.source,"hand");
+  assert.equal(fallback.source,"pose");
+  assert.ok(Math.abs(hand.x-fallback.x)>10);
+  const mixed=getHitpoints(pose,view,100,precise);
+  assert.equal(mixed.find(p=>p.part==="rightHand")?.source,"pose");
+  assert.equal(smoothHitpoints([hand],[fallback],1/60)[0].source,"hand");
+});
