@@ -180,7 +180,7 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - `src/games/registry.ts`는 게임 메타데이터 및 출시 상태의 단일 소스. **현 단계에서 `balloon-pop`만 available**. 미완성 게임은 coming-soon. 없는 구현을 가동 중이라고 주장하지 말 것.
 - 홈/목록/설정 페이지에서는 카메라를 켜지 않고, `GameStage` 마운트 후 사용자 클릭으로만 카메라 시작. 플레이 이탈 시 `getUserMedia` 트랙, Pose/Hand Landmarker, rAF를 모두 해제.
 - `GameStage`가 카메라와 인식 수명주기를 관리하고, `engine/renderer.ts`는 Canvas 표현, `games/balloon-pop/game.ts`는 게임 시간·스폰·충돌·점수 규칙을 관리한다. 공통 `core.ts`와 `hands.ts`는 종전과 동일한 판정 알고리즘을 유지.
-- 플레이 UI는 몰입형으로 최소화하고 일시정지/재개/종료·결과·전체 화면·표시 모드 빠른 전환을 제공. 게임 진행 중 탭이 숨겨지면 자동 일시정지하며 사용자가 재개.
+- 플레이 UI는 몰입형으로 최소화하고 일시정지/재개/종료·결과·전체 화면을 제공. 표시 모드 변경은 ⚙ 인게임 간편 설정과 전체 설정 페이지에서만 허용. 게임 진행 중 탭이 숨겨지면 자동 일시정지하며 사용자가 재개.
 - 설정 페이지의 게임별 시간·난이도, 사운드, 리더보드는 **미구현**이며 향후 독립 게임 설정 UI로 추가. 자동 저장은 표시/카메라 공통 옵션에 한정.
 - Vercel SPA 라우팅 fallback 사용 시 기존 `git.deploymentEnabled.dev=false` 와 `main=true`를 변경하지 말 것.
 - 새로운 게임을 추가할 때 `registry.ts` 상태를 변경하기 전에 실제 게임 로직, 카메라 레이아웃, 입력 부위, 테스트를 먼저 구현하고 검증.
@@ -199,3 +199,10 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - The dialog is inside the fullscreen-capable stage, pauses gameplay without stopping the camera or resetting stats, and remembers whether to resume on close. A preexisting manual pause and tab-background pause must NOT auto-resume. ESC and Close restore focus. Helper semantics live in src/engine/quick-pause.ts.
 - All quick controls must write to the exact existing SettingsContext update() so they persist to the same localStorage settings as the full page. Sound volume previews use an audio preview bus independent of gameplay mute, and controls apply immediately to the running audio graph; quick-mute is cleared when explicitly editing sound preferences.
 - Maintain reduced motion, mobile scrollable dialog, and Web Audio user gesture unlock. See tests/audio.test.ts and tests/quick-settings.test.ts. Strict dev-first, main only after user's merge request.
+
+## 2026-10-21 — 게임 화면 하단 중복 UI 제거
+
+- `src/components/GameStage.tsx`의 DISPLAY 바로가기 및 상시 HAND/POSE 추적 진단 줄은 일반·전체화면 모두 렌더링하지 않는다. 게임 하단에는 상황 안내와 시작/일시정지/종료/카메라 끄기 같은 플레이 조작만 유지한다.
+- 화면 모드와 판정 크기 등 공통 옵션은 기존 `/settings` 또는 플레이를 멈추는 ⚙ `QuickSettingsOverlay`에서 설정하며 같은 SettingsContext/localStorage를 사용한다.
+- 고급 설정의 `diagnostics` 옵션은 유지한다. 활성화된 경우에만 게임 중 간편 설정 모달 내부에서 모델 상태 및 좌우 손 HAND/POSE 앵커 출처를 확인할 수 있다. 디버그 UI를 플레이 화면 하단에 다시 배치하지 않는다.
+- fullscreen 진입/해제와 모바일 반응형 모두 같은 원칙을 유지한다. 게임 점수·콤보 HUD, 카메라/추적/타이머 및 빠른 설정의 일시정지/복귀 의미는 변경하지 않는다.
