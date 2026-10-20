@@ -1,3 +1,4 @@
+import type {KeyboardEvent} from "react";
 import type {AppSettings, DisplayMode} from "../settings/settings";
 import type {MusicTheme} from "../engine/audio";
 
@@ -12,7 +13,20 @@ type Props = {
 
 /** Lightweight settings modal inside the fullscreen-capable game stage. */
 export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onPreviewSfx}:Props){
-  return <div className="quick-settings-backdrop">
+  const trapFocus=(event:KeyboardEvent<HTMLDivElement>)=>{
+    if(event.key!=="Tab")return;
+    const controls=Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+      '.quick-settings-modal button:not(:disabled),.quick-settings-modal input:not(:disabled)'
+    ));
+    const first=controls[0],last=controls[controls.length-1];
+    if(!first||!last)return;
+    if(event.shiftKey&&document.activeElement===first){
+      event.preventDefault();last.focus();
+    } else if(!event.shiftKey&&document.activeElement===last){
+      event.preventDefault();first.focus();
+    }
+  };
+  return <div className="quick-settings-backdrop" onKeyDown={trapFocus}>
     <section className="quick-settings-modal" role="dialog" aria-modal="true"
       aria-labelledby="quick-settings-heading" aria-describedby="quick-settings-description">
       <header className="quick-settings-header">
@@ -38,7 +52,8 @@ export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onP
           <div className="quick-slider-row">
             <input type="range" id="quick-music-volume" min="0" max="100" step="5"
               disabled={!settings.musicEnabled} value={settings.musicVolume}
-              onChange={e=>update({musicVolume:Number(e.target.value)})}/>
+              onChange={e=>update({musicVolume:Number(e.target.value)})}
+              onPointerUp={onPreviewMusic} onKeyUp={onPreviewMusic}/>
             <button type="button" disabled={!settings.musicEnabled||settings.musicVolume===0}
               onClick={onPreviewMusic}>▶ 들어보기</button>
           </div>
@@ -54,7 +69,8 @@ export function QuickSettingsOverlay({settings,update,onClose,onPreviewMusic,onP
           <div className="quick-slider-row">
             <input type="range" id="quick-sfx-volume" min="0" max="100" step="5"
               disabled={!settings.sfxEnabled} value={settings.sfxVolume}
-              onChange={e=>update({sfxVolume:Number(e.target.value)})}/>
+              onChange={e=>update({sfxVolume:Number(e.target.value)})}
+              onPointerUp={onPreviewSfx} onKeyUp={onPreviewSfx}/>
             <button type="button" disabled={!settings.sfxEnabled||settings.sfxVolume===0}
               onClick={onPreviewSfx}>▶ 들어보기</button>
           </div>
