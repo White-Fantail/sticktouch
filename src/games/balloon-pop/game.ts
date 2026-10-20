@@ -1,8 +1,10 @@
 import {hitBalloons,newBalloon,stepBalloons,type Balloon,type Point} from "../../core.ts";
+import type {GameEvent} from "../../engine/game-feel";
 
 export type BalloonRound={
   playing:boolean;
   paused:boolean;
+  /** Mirrored from GameFeelSession by the host; not calculated in the game module. */
   score:number;
   time:number;
   spawning:number;
@@ -13,18 +15,29 @@ export const BALLOON_DURATION_SECONDS=60;
 export function createBalloonRound(seconds=BALLOON_DURATION_SECONDS):BalloonRound {
   return {playing:false,paused:false,score:0,time:seconds,spawning:0,seq:0,balls:[]};
 }
-/** Advance only the balloon game. Camera inference and rendering are reusable across games. */
+/** A game only reports semantic events; the platform owns scoring, SFX and effects. */
 export function stepBalloonRound(round:BalloonRound,delta:number,width:number,height:number,points:Point[]):
-  {hits:number;finished:boolean} {
-  if(!round.playing || round.paused)return {hits:0,finished:false};
+  {hits:number;finished:boolean;events:GameEvent[]} {
+  if(!round.playing || round.paused)return {hits:0,finished:false,events:[]};
   const dt=Math.max(0,Math.min(delta,0.08));
   round.time=Math.max(0,round.time-dt);
   round.spawning+=dt;
-  if(round.spawning>=1.2){round.spawning=0;round.balls.push(newBalloon(++round.seq,width,height));}
-  round.balls=stepBalloons(round.balls,dt,width,height);
-  const hit=hitBalloons(round.balls,points,["leftHand","rightHand","leftFoot","rightFoot","head"]);
+  if(round.spawning>=1.2){
+    round.spawning-=1.2;
+    round.balls.push(newBalloon(++round.seq,width,height));
+  }
+  const previous=round.balls;
+  const moved=stepBalloons(previous,dt,width,height);
+  const live=new Set(moved.map(ball=>ball.id));
+  const missed=previous.filter(ball=>!live.has(ball.id));
+  const hit=hitBalloons(moved,points,["leftHand","rightHand","leftFoot","rightFoot","head"]);
   round.balls=hit.remaining;
-  if(hit.hits.length)round.score+=hit.hits.length*10;
+  const events:GameEvent[]=[
+    ...missed.map(ball=>({id:"balloon:miss:"+ball.id,type:"miss" as const,
+      targetId:String(ball.id),position:{x:ball.x,y:ball.y}})),
+    ...hit.hits.map(ball=>({id:"balloon:hit:"+ball.id,type:"hit" as const,
+      targetId:String(ball.id),basePoints:10,position:{x:ball.x,y:ball.y},color:ball.color}))
+  ];
   if(round.time<=0)round.playing=false;
-  return {hits:hit.hits.length,finished:round.time<=0};
+  return {hits:hit.hits.length,finished:round.time<=0,events};
 }
