@@ -190,3 +190,14 @@ Codespaces는 일시적인 개발 서버이지 상시 운영되는 배포 URL이
 ## Game Feel Engine (2026-10-21)
 
 공통 점수·콤보, Web Audio 기반 배경음악과 효과음, 파티클·점수 팝업, 강화된 HUD/결과 화면, 로컬 최고 기록을 dev 브랜치의 풍선 게임에 통합했습니다. 설정 → 게임 기본값에서 음악/효과음의 켜기·끄기와 볼륨, 시각 효과 품질을 선택할 수 있습니다. 소리는 사용자 게임 시작 클릭 시 활성화됩니다. 실제 모바일 실기기 성능과 오디오 재생은 아직 확인해야 합니다. 자세한 이벤트 계약과 개발 가이드는 [Game Feel Engine](docs/GAME_FEEL_ENGINE.md) 참고.
+
+
+### In-game quick settings and louder audio (2026-10-21, dev)
+
+Game stage **⚙ 설정** opens a compact dialog without navigation. While it is open the round is paused (score, timer, combo and camera session retained). Closing returns to the previously running state; if the user had manually paused, it remains paused. Browser backgrounding while the dialog is open also preserves pause. The control remains available in the fullscreen game panel.
+
+The quick dialog updates the **same SettingsContext and stored preferences** as the full /settings page. Supported controls: music and sound toggles/volume, short audio previews, display mode, touch ring visibility, touch hitbox percentage and visual effects quality. The full settings page remains available from the main navigation.
+
+BGM synthesis is now substantially more audible; master BGM/SFX gains respond directly and smoothly to percentages instead of being multiplied by several tiny constants. New profiles default to music volume **55%** (previously 35%); existing saved preferences retain their chosen percentages but use the corrected audio gain. Use preview buttons or release a slider to hear audio while gameplay remains paused. Audio output still depends on device volume/browser permissions.
+
+Tests added in tests/quick-settings.test.ts and tests/audio.test.ts; actual Mac/iOS/Android audio and layout validation remains necessary.
