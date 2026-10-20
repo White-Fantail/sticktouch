@@ -5,7 +5,7 @@ export type AnchorSource = "hand" | "pose";
 export type Point = { part: BodyPart; x: number; y: number; radius: number; source?: AnchorSource };
 /** Camera-normalized hand centers, assigned to the same sides as the Pose wrist indices. */
 export type HandAnchors = Partial<Record<"left" | "right", Pick<Landmark, "x" | "y">>>;
-export type Viewport = { width: number; height: number; videoWidth: number; videoHeight: number; mirror: boolean };
+export type Viewport = { width: number; height: number; videoWidth: number; videoHeight: number; mirror: boolean; fit?: "cover" | "contain" };
 export type Balloon = { id: number; x: number; y: number; radius: number; vx: number; vy: number; color: string };
 export const BONES: ReadonlyArray<readonly [number, number]> = [
   [11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],
@@ -14,7 +14,7 @@ export const BONES: ReadonlyArray<readonly [number, number]> = [
 export function coverRect(v: Viewport) {
   if (!(v.videoWidth > 0 && v.videoHeight > 0 && v.width > 0 && v.height > 0))
     return { x: 0, y: 0, width: v.width, height: v.height };
-  const scale = Math.max(v.width / v.videoWidth, v.height / v.videoHeight);
+  const scale = (v.fit === "contain" ? Math.min : Math.max)(v.width / v.videoWidth, v.height / v.videoHeight);
   const width = v.videoWidth * scale, height = v.videoHeight * scale;
   return { x: (v.width - width) / 2, y: (v.height - height) / 2, width, height };
 }
