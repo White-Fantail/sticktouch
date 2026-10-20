@@ -1,8 +1,8 @@
 import {coverRect,type Landmark,type Point,type Viewport} from "../core.ts";
 import type {GameEvent} from "../engine/game-feel";
-import {createBalloonRound,stepBalloonRound,type BalloonRound} from "./balloon-pop/game";
-import {createFruitRound,fruitCameraBox,stepFruitRound,type FruitRound} from "./fruit-catch/game";
-import {createPoseRound,matchesPose,poseTarget,stepPoseRound,type PoseRound} from "./pose-challenge/game";
+import {createBalloonRound,stepBalloonRound,type BalloonRound} from "./balloon-pop/game.ts";
+import {createFruitRound,fruitCameraBox,stepFruitRound,type FruitRound} from "./fruit-catch/game.ts";
+import {createPoseRound,matchesPose,poseTarget,stepPoseRound,type PoseRound} from "./pose-challenge/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
@@ -31,7 +31,7 @@ export function basketInput(points:readonly Point[],view:Viewport):number|null {
 }
 export function gameTracking(round:GameRound,points:readonly Point[],pose:readonly Landmark[]|undefined):boolean {
   switch(round.kind){
-    case "fruit-catch":return basketInput(points,{width:1,height:1,videoWidth:1,videoHeight:1,mirror:false})!==null;
+    case "fruit-catch":return points.some(p=>p.part==="leftHand"||p.part==="rightHand");
     case "pose-challenge":return matchesPose(pose,poseTarget(round.state).id)!==null;
     default:return points.length>0;
   }
