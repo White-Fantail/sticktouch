@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { matchHandPalms } from "../hands";
 import {getHitpoints, smoothHitpoints, type Landmark, type Point, type Viewport} from "../core";
-import {type DisplayMode, type CameraSide, type AppSettings} from "../settings/settings";
+import {type CameraSide, type AppSettings} from "../settings/settings";
 import {QuickSettingsOverlay} from "./QuickSettingsOverlay";
 import {pauseForSettings,restoreAfterSettings} from "../engine/quick-pause";
 import {useSettings} from "../settings/SettingsContext";
@@ -25,7 +25,7 @@ const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간
 
 export function GameStage({game}: {game: GameDefinition}) {
   const {settings,update}=useSettings();
-  const {mode,rings,hitbox,side,preciseHands,diagnostics,
+  const {mode,rings,hitbox,side,preciseHands,
     musicEnabled,sfxEnabled,musicVolume,sfxVolume,effectsQuality}=settings;
   const [quickMuted,setQuickMuted]=useState(false);
   const [quickSettingsOpen,setQuickSettingsOpen]=useState(false);
@@ -415,6 +415,7 @@ export function GameStage({game}: {game: GameDefinition}) {
         </div>}
         {quickSettingsOpen && <QuickSettingsOverlay
           settings={settings} update={updateQuickSettings}
+          handModelStatus={handModelStatus} handSources={handSources}
           onClose={closeQuickSettings} onPreviewMusic={previewMusic}
           onPreviewSfx={previewSfx} theme={game.feedback.musicTheme}/>}
       </div>
@@ -428,16 +429,6 @@ export function GameStage({game}: {game: GameDefinition}) {
           <button className="secondary" disabled={quickSettingsOpen} onClick={stop}>카메라 끄기</button>
         </>}</div>
       </div>
-      <div className="play-mode-picker" aria-label="화면 표시 모드 빠른 변경">
-        <span className="eyebrow">DISPLAY</span>
-        {([["camera","실제 영상"],["both","영상 + 스틱맨"],["stickman","스틱맨만"]] as [DisplayMode,string][]).map(([value,label])=>
-          <button type="button" key={value} aria-pressed={mode===value} className={mode===value?"active":""} onClick={()=>update({mode:value})}>{label}</button>)}
-      </div>
-      {diagnostics && <div className="play-diagnostics" role="status">
-        <span>손바닥 정밀 추적: {preciseHands?"ON":"OFF"}</span>
-        <span>Hand 모델: {handModelStatus==="pending"?"준비 전":handModelStatus==="ready"?"준비됨":"Pose 폴백"}</span>
-        <span>왼손 <em>{handSources.left.toUpperCase()}</em></span><span>오른손 <em>{handSources.right.toUpperCase()}</em></span>
-      </div>}
     </div>
     <div className="play-footer-hint">안전을 위해 주변 공간을 확보해 주세요 · 카메라 영상은 저장되지 않습니다.</div>
   </main>;
