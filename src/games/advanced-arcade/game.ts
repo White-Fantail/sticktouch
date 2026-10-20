@@ -1,0 +1,258 @@
+import {circlesOverlap,type Point} from "../../core.ts";
+import type {GameEvent} from "../../engine/game-feel";
+
+export type AdvancedGameId=
+  |"rhythm-pads"|"shield-guard"|"memory-sequence"|"laser-lane"|"parcel-sort";
+export const ADVANCED_GAME_IDS:readonly AdvancedGameId[]=[
+  "rhythm-pads","shield-guard","memory-sequence","laser-lane","parcel-sort"
+];
+export const BEAT_SPOTS=[{x:.17,y:.76},{x:.39,y:.76},{x:.61,y:.76},{x:.83,y:.76}] as const;
+export const MEMORY_SPOTS=[
+  {x:.27,y:.40},{x:.73,y:.40},{x:.27,y:.71},{x:.73,y:.71}
+] as const;
+export const SORT_BINS=[{x:.2,y:.25},{x:.5,y:.25},{x:.8,y:.25}] as const;
+export const SORT_COLORS=["#69dafa","#ffcb73","#cd9dff"] as const;
+export type Note={id:number;lane:number;age:number};
+export type Bolt={id:number;x:number;y:number;vx:number;vy:number;age:number};
+export type Laser={id:number;gap:number;age:number;damaged:boolean};
+export type Parcel={id:number;kind:number;x:number;y:number;age:number;heldBy:string|null;armed:boolean};
+type MemoryPhase="watch"|"input"|"rest";
+export type AdvancedRound={
+  kind:AdvancedGameId;playing:boolean;paused:boolean;score:number;time:number;seq:number;
+  phaseTime:number;spawnTime:number;wait:number;
+  notes:Note[];bolts:Bolt[];
+  sequence:number[];memoryPhase:MemoryPhase;memoryIndex:number;memoryLit:number;memoryCorrect:boolean;
+  previousPads:Record<string,number>;
+  laser:Laser|null;parcel:Parcel|null;
+};
+const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
+const handsOnly=(points:readonly Point[])=>points.filter(p=>
+  (p.part==="leftHand"||p.part==="rightHand")&&
+  Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.radius));
+const choose=(size:number,rand:()=>number)=>clamp(Math.floor(rand()*size),0,size-1);
+const position=(x:number,y:number,w:number,h:number)=>({x:x*w,y:y*h});
+const touch=(p:Point,at:{x:number;y:number},radius:number,w:number,h:number)=>
+  circlesOverlap(p,{...position(at.x,at.y,w,h),radius:radius*Math.min(w,h)});
+
+export function createAdvancedRound(kind:AdvancedGameId,seconds=60):AdvancedRound{
+  return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
+    phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
+    memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
+    previousPads:{},laser:null,parcel:null};
+}
+/** A press is entering a pad, not holding a palm over it across frames.
+ * Maintain the same history during preview and cooldown as during input. */
+function padPresses(round:AdvancedRound,hands:Point[],
+  spots:readonly {x:number;y:number}[],radius:number,w:number,h:number){
+  const next:Record<string,number>={};
+  const pressed:{part:string;pad:number}[]=[];
+  for(const hand of hands){
+    const pad=spots.findIndex(s=>touch(hand,s,radius,w,h));
+    next[hand.part]=pad;
+    if(pad>=0&&round.previousPads[hand.part]!==undefined&&
+      round.previousPads[hand.part]!==pad)pressed.push({part:hand.part,pad});
+  }
+  round.previousPads=next;
+  return pressed;
+}
+function stepBeats(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[]){
+  round.spawnTime+=dt;
+  while(round.spawnTime>=.73){
+    round.spawnTime-=.73;
+    round.notes.push({id:++round.seq,lane:choose(4,rand),age:0});
+  }
+  for(const note of round.notes)note.age+=dt;
+  const presses=padPresses(round,hands,BEAT_SPOTS,.086,w,h);
+  for(const press of presses){
+    const possible=round.notes.filter(n=>n.lane===press.pad&&Math.abs(n.age-1.24)<=.28)
+      .sort((a,b)=>Math.abs(a.age-1.24)-Math.abs(b.age-1.24))[0];
+    if(!possible)continue;
+    const precise=Math.abs(possible.age-1.24)<=.115;
+    events.push({id:"beat:hit:"+possible.id,type:precise?"perfect":"good",
+      targetId:"beat:"+possible.id,basePoints:precise?25:15,
+      position:position(BEAT_SPOTS[press.pad].x,BEAT_SPOTS[press.pad].y,w,h),
+      color:precise?"#ffe388":"#97f8d0",bodyPart:press.part});
+    round.notes=round.notes.filter(n=>n.id!==possible.id);
+  }
+  const expired=round.notes.filter(n=>n.age>1.58);
+  for(const note of expired)
+    events.push({id:"beat:miss:"+note.id,type:"miss",targetId:"beat:"+note.id,
+      position:position(BEAT_SPOTS[note.lane].x,BEAT_SPOTS[note.lane].y,w,h)});
+  round.notes=round.notes.filter(n=>n.age<=1.58);
+}
+function spawnBolt(round:AdvancedRound,rand:()=>number){
+  const edge=choose(4,rand),lane=.20+rand()*.60;
+  const x=edge===0?-.08:edge===1?1.08:lane;
+  const y=edge===2?-.08:edge===3?1.08:lane;
+  const dx=.5-x,dy=.51-y,length=Math.hypot(dx,dy)||1;
+  const speed=.20+rand()*.09;
+  round.bolts.push({id:++round.seq,x,y,vx:dx/length*speed,vy:dy/length*speed,age:0});
+}
+function stepShield(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[]){
+  round.spawnTime+=dt;
+  const interval=Math.max(.67,1.15-(60-round.time)*.006);
+  while(round.spawnTime>=interval){
+    round.spawnTime-=interval;spawnBolt(round,rand);
+  }
+  const remaining:Bolt[]=[];
+  for(const bolt of round.bolts){
+    bolt.x+=bolt.vx*dt;bolt.y+=bolt.vy*dt;bolt.age+=dt;
+    const hit=hands.find(p=>touch(p,bolt,.052,w,h));
+    if(hit){
+      events.push({id:"shield:block:"+bolt.id,type:"hit",targetId:"shield:"+bolt.id,
+        basePoints:20,position:position(bolt.x,bolt.y,w,h),color:"#7bf3e0",bodyPart:hit.part});
+    }else if(Math.hypot(bolt.x-.5,bolt.y-.51)<.105){
+      events.push({id:"shield:damage:"+bolt.id,type:"damage",targetId:"shield:"+bolt.id,
+        position:position(.5,.51,w,h),color:"#ff808a"});
+    }else if(bolt.age<8)remaining.push(bolt);
+  }
+  round.bolts=remaining;
+}
+function beginMemorySequence(round:AdvancedRound,rand:()=>number,extend:boolean){
+  if(!extend){round.sequence=[choose(4,rand),choose(4,rand)];}
+  else round.sequence.push(choose(4,rand));
+  round.memoryPhase="watch";round.phaseTime=0;round.memoryIndex=0;
+  round.memoryLit=-1;round.memoryCorrect=false;
+}
+function stepMemory(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[]){
+  const pressed=padPresses(round,hands,MEMORY_SPOTS,.095,w,h);
+  if(!round.sequence.length)beginMemorySequence(round,rand,false);
+  round.phaseTime+=dt;
+  if(round.memoryPhase==="watch"){
+    // Delay before showing the first flash; keep input inactive during the reveal.
+    const t=round.phaseTime-.42;
+    const idx=Math.floor(t/.70);
+    round.memoryLit=t>=0&&idx<round.sequence.length&&t% .70<.43
+      ?round.sequence[idx]:-1;
+    if(round.phaseTime>=.42+round.sequence.length*.70){
+      round.memoryPhase="input";round.phaseTime=0;round.memoryLit=-1;
+    }
+    return;
+  }
+  if(round.memoryPhase==="rest"){
+    if(round.phaseTime>=.85){
+      const extend=round.memoryCorrect&&round.sequence.length<7;
+      beginMemorySequence(round,rand,extend);
+    }
+    return;
+  }
+  if(pressed.length){
+    const {part,pad}=pressed[0];
+    const correct=round.sequence[round.memoryIndex]===pad;
+    const id=++round.seq;
+    events.push({id:"memory:tap:"+id,type:correct?"good":"miss",
+      targetId:"memory:"+id,basePoints:15,
+      position:position(MEMORY_SPOTS[pad].x,MEMORY_SPOTS[pad].y,w,h),
+      color:correct?"#a2f4cd":"#ff9599",bodyPart:part});
+    round.memoryLit=pad;
+    round.phaseTime=0;
+    if(!correct){
+      round.memoryCorrect=false;round.memoryPhase="rest";return;
+    }
+    round.memoryIndex++;
+    if(round.memoryIndex===round.sequence.length){
+      events.push({id:"memory:complete:"+id,type:"bonus",basePoints:round.sequence.length*10,
+        position:position(.5,.53,w,h),color:"#ffe88c"});
+      round.memoryCorrect=true;round.memoryPhase="rest";
+    }
+  }else if(round.phaseTime>=5.5){
+    events.push({id:"memory:timeout:"+ ++round.seq,type:"miss",
+      position:position(.5,.53,w,h)});
+    round.memoryCorrect=false;round.memoryPhase="rest";round.phaseTime=0;
+  }else if(round.phaseTime>.23){
+    round.memoryLit=-1;
+  }
+}
+function stepLaser(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[]){
+  if(!round.laser){
+    round.wait-=dt;
+    if(round.wait<=0)round.laser={id:++round.seq,gap:.24+rand()*.52,age:0,damaged:false};
+    return;
+  }
+  const laser=round.laser;laser.age+=dt;
+  const active=laser.age>=.80;
+  const progress=(laser.age-.80)/2.35;
+  if(active&&progress<=1){
+    const y=.16+progress*.69;
+    const halfGap=.155;
+    const struck=hands.some(p=>Math.abs(p.y-y*h)<=p.radius+Math.min(w,h)*.020
+      &&(p.x-p.radius<(laser.gap-halfGap)*w||
+         p.x+p.radius>(laser.gap+halfGap)*w));
+    if(struck&&!laser.damaged){
+      laser.damaged=true;
+      events.push({id:"laser:hit:"+laser.id,type:"damage",targetId:"laser:"+laser.id,
+        position:position(laser.gap,y,w,h),color:"#ff7f8d"});
+    }
+  }
+  if(laser.age>=3.15){
+    if(!laser.damaged)events.push({id:"laser:clear:"+laser.id,type:"collect",
+      targetId:"laser:"+laser.id,basePoints:25,
+      position:position(laser.gap,.85,w,h),color:"#9ff9d2"});
+    round.laser=null;round.wait=.34;
+  }
+}
+function spawnParcel(round:AdvancedRound,rand:()=>number){
+  round.parcel={id:++round.seq,kind:choose(3,rand),x:.5,y:.72,
+    age:0,heldBy:null,armed:false};
+}
+function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[]){
+  if(!round.parcel){
+    round.wait-=dt;
+    if(round.wait<=0)spawnParcel(round,rand);
+    return;
+  }
+  const parcel=round.parcel;parcel.age+=dt;
+  const owner=hands.find(p=>p.part===parcel.heldBy);
+  if(parcel.heldBy){
+    if(owner){
+      parcel.x=clamp(owner.x/w,.045,.955);parcel.y=clamp(owner.y/h,.10,.94);
+      const dest=SORT_BINS.findIndex(bin=>touch(owner,bin,.093,w,h));
+      if(dest>=0){
+        const correct=dest===parcel.kind;
+        events.push({id:"parcel:deliver:"+parcel.id,type:correct?"collect":"miss",
+          targetId:"parcel:"+parcel.id,basePoints:correct?30:0,
+          position:position(SORT_BINS[dest].x,SORT_BINS[dest].y,w,h),
+          color:correct?SORT_COLORS[dest]:"#ff8995",bodyPart:owner.part});
+        round.parcel=null;round.wait=.40;
+      }
+    }else{
+      // Hand changes or dropout never teleport the carried parcel.
+      parcel.heldBy=null;parcel.armed=false;parcel.x=.5;parcel.y=.72;
+    }
+  }else{
+    const touching=hands.find(p=>touch(p,parcel,.065,w,h));
+    if(!touching)parcel.armed=true;
+    else if(parcel.armed)parcel.heldBy=touching.part;
+  }
+  if(round.parcel&&parcel.age>=9){
+    events.push({id:"parcel:expired:"+parcel.id,type:"miss",targetId:"parcel:"+parcel.id,
+      position:position(parcel.x,parcel.y,w,h)});
+    round.parcel=null;round.wait=.35;
+  }
+}
+/** Gameplay is deterministic for injected randomness and reports only platform events.
+ * Timer, simulation, and misses freeze whenever hand tracking disappears. */
+export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:number,points:Point[],
+  rand:()=>number=Math.random):{finished:boolean;events:GameEvent[]}{
+  if(!round.playing||round.paused)return {finished:false,events:[]};
+  const hands=handsOnly(points);
+  if(!hands.length||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h))
+    return {finished:false,events:[]};
+  const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
+  round.time=Math.max(0,round.time-dt);
+  const events:GameEvent[]=[];
+  switch(round.kind){
+    case "rhythm-pads":stepBeats(round,dt,hands,w,h,rand,events);break;
+    case "shield-guard":stepShield(round,dt,hands,w,h,rand,events);break;
+    case "memory-sequence":stepMemory(round,dt,hands,w,h,rand,events);break;
+    case "laser-lane":stepLaser(round,dt,hands,w,h,rand,events);break;
+    case "parcel-sort":stepParcel(round,dt,hands,w,h,rand,events);break;
+  }
+  if(round.time<=0)round.playing=false;
+  return {finished:round.time<=0,events};
+}
