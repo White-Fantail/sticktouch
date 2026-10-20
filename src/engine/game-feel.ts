@@ -37,7 +37,8 @@ export class GameFeelSession {
   private peakCombo=0;
   private hitCount=0;
   private missCount=0;
-  constructor(private readonly profile:GameFeelProfile=DEFAULT_FEEL_PROFILE) {}
+  private readonly profile:GameFeelProfile;
+  constructor(profile:GameFeelProfile=DEFAULT_FEEL_PROFILE) {this.profile=profile;}
   dispatch(event:GameEvent):GameFeedback|null {
     if(!event.id || this.ids.has(event.id))return null;
     const success=successTypes.includes(event.type);
