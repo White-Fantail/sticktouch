@@ -52,6 +52,9 @@ test("an unmatched pose times out once and moves to next goal",()=>{
   assert.equal(g.step,1);
 });
 test("registered mini games are all playable and use distinct input rules",()=>{
-  assert.deepEqual(GAMES.map(g=>[g.id,g.status]),[
-    ["balloon-pop","available"],["fruit-catch","available"],["pose-challenge","available"]]);
+  for(const id of ["balloon-pop","fruit-catch","pose-challenge",
+    "mole-whack","color-match","star-hunt","meteor-dodge","freeze-dance"]){
+    assert.equal(GAMES.find(g=>g.id===id)?.status,"available",id);
+  }
+  assert.equal(new Set(GAMES.map(g=>g.id)).size,GAMES.length);
 });
