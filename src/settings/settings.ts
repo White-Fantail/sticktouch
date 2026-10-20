@@ -1,3 +1,4 @@
+import type {EffectsQuality} from "../engine/effects";
 export type DisplayMode = "camera" | "both" | "stickman";
 export type CameraSide = "user" | "environment";
 export interface AppSettings {
@@ -7,12 +8,23 @@ export interface AppSettings {
   hitbox: number;
   side: CameraSide;
   diagnostics: boolean;
+  musicEnabled: boolean;
+  sfxEnabled: boolean;
+  musicVolume: number;
+  sfxVolume: number;
+  effectsQuality: EffectsQuality;
 }
 export const SETTINGS_KEY = "sticktouch:settings:v1";
 export const DEFAULT_SETTINGS: AppSettings = {
   mode: "both", rings: true, preciseHands: true,
-  hitbox: 100, side: "user", diagnostics: false
+  hitbox: 100, side: "user", diagnostics: false,
+  musicEnabled: true, sfxEnabled: true, musicVolume: 35, sfxVolume: 65,
+  effectsQuality: "full"
 };
+function volume(input:unknown,fallback:number):number {
+  return typeof input==="number"&&Number.isFinite(input)
+    ? Math.min(100,Math.max(0,Math.round(input/5)*5)):fallback;
+}
 export function normalizeSettings(input: unknown): AppSettings {
   if (!input || typeof input !== "object") return {...DEFAULT_SETTINGS};
   const value = input as Record<string, unknown>;
@@ -23,7 +35,13 @@ export function normalizeSettings(input: unknown): AppSettings {
     hitbox: typeof value.hitbox === "number" && Number.isFinite(value.hitbox)
       ? Math.round(Math.min(200, Math.max(50, value.hitbox)) / 10) * 10 : DEFAULT_SETTINGS.hitbox,
     side: value.side === "user" || value.side === "environment" ? value.side : DEFAULT_SETTINGS.side,
-    diagnostics: typeof value.diagnostics === "boolean" ? value.diagnostics : DEFAULT_SETTINGS.diagnostics
+    diagnostics: typeof value.diagnostics === "boolean" ? value.diagnostics : DEFAULT_SETTINGS.diagnostics,
+    musicEnabled:typeof value.musicEnabled==="boolean"?value.musicEnabled:DEFAULT_SETTINGS.musicEnabled,
+    sfxEnabled:typeof value.sfxEnabled==="boolean"?value.sfxEnabled:DEFAULT_SETTINGS.sfxEnabled,
+    musicVolume:volume(value.musicVolume,DEFAULT_SETTINGS.musicVolume),
+    sfxVolume:volume(value.sfxVolume,DEFAULT_SETTINGS.sfxVolume),
+    effectsQuality:value.effectsQuality==="full"||value.effectsQuality==="light"||value.effectsQuality==="off"
+      ?value.effectsQuality:DEFAULT_SETTINGS.effectsQuality
   };
 }
 export function readSettings(): AppSettings {
