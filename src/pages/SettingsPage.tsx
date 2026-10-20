@@ -83,7 +83,7 @@ export function SettingsPage() {
           <h2>고급 / 진단</h2><p className="panel-description">추적 정확도를 비교하거나 문제를 확인할 때만 사용하세요.</p>
           <div className="setting-group"><div className="setting-line"><label htmlFor="diagnostics">추적 입력 진단 표시</label>
             <input type="checkbox" id="diagnostics" checked={settings.diagnostics} onChange={e=>update({diagnostics:e.target.checked})}/></div>
-            <p>게임 화면에서 왼손과 오른손의 실제 앵커 출처(HAND / POSE)를 보여줍니다.</p></div>
+            <p>게임 중 ⚙ 간편 설정을 열면 왼손과 오른손의 실제 앵커 출처(HAND / POSE)를 볼 수 있어요. 플레이 화면 아래에는 표시하지 않습니다.</p></div>
           <div className="tip"><b>참고</b><p>Hand 모델을 꺼도 Pose 기반 손바닥 추정은 동작하므로 터치 원이 손바닥에 나타나는 것이 정상이에요.</p></div>
         </>}
       </section>
