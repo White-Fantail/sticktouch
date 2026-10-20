@@ -1,83 +1,151 @@
 import type {GameEventType} from "./game-feel";
-export type AudioPreferences={
-  musicEnabled:boolean; sfxEnabled:boolean; musicVolume:number; sfxVolume:number;
+
+export type AudioPreferences = {
+  musicEnabled: boolean; sfxEnabled: boolean; musicVolume: number; sfxVolume: number;
 };
-export type MusicTheme="pop"|"fruit"|"rhythm";
-const notes={pop:[0,4,7,12,7,4,2,7],fruit:[0,2,4,7,9,7,4,2],rhythm:[0,0,7,5,0,3,7,10]};
+export type MusicTheme = "pop" | "fruit" | "rhythm";
+export type AudioChannel = "music" | "sfx";
+const notes: Record<MusicTheme, readonly number[]> = {
+  pop:[0,4,7,12,7,4,2,7],fruit:[0,2,4,7,9,7,4,2],rhythm:[0,0,7,5,0,3,7,10]
+};
+
+/** Linear, predictable channel volumes. No hidden attenuation stacked on the slider. */
+export function volumeToGain(volume:number, channel:AudioChannel):number {
+  const bounded=Number.isFinite(volume)?Math.max(0,Math.min(100,volume)):0;
+  return (bounded/100) * (channel==="music"?0.55:0.7);
+}
+
 export class AudioManager {
   private context:AudioContext|null=null;
   private musicGain:GainNode|null=null;
   private fxGain:GainNode|null=null;
+  private previewMusicGain:GainNode|null=null;
   private playing=false;
   private mutedByPause=false;
   private nextNote=0;
   private noteIndex=0;
   private theme:MusicTheme="pop";
-  private prefs:AudioPreferences={musicEnabled:true,sfxEnabled:true,musicVolume:35,sfxVolume:65};
+  private prefs:AudioPreferences={musicEnabled:true,sfxEnabled:true,musicVolume:55,sfxVolume:65};
+
+  private ensureContext():AudioContext|null {
+    try {
+      if(this.context && this.context.state!=="closed") return this.context;
+      const AudioCtor=window.AudioContext ||
+        (window as Window & {webkitAudioContext?:typeof AudioContext}).webkitAudioContext;
+      if(!AudioCtor)return null;
+      const ctx=new AudioCtor();
+      this.context=ctx;
+      this.musicGain=ctx.createGain();this.musicGain.connect(ctx.destination);
+      this.fxGain=ctx.createGain();this.fxGain.connect(ctx.destination);
+      // Preview has a separate bus: the game remains muted while the settings dialog is open.
+      this.previewMusicGain=ctx.createGain();
+      this.previewMusicGain.gain.value=0;
+      this.previewMusicGain.connect(ctx.destination);
+      this.applyVolumes();
+      return ctx;
+    }catch{return null;}
+  }
+  private gainTo(node:GainNode|null,target:number){
+    if(!node || !this.context)return;
+    const param=node.gain;
+    // Smooth fast changes to avoid volume-slider clicks.
+    param.setTargetAtTime(target,this.context.currentTime,0.018);
+  }
+  private applyVolumes(){
+    this.gainTo(this.musicGain,this.prefs.musicEnabled&&!this.mutedByPause
+      ?volumeToGain(this.prefs.musicVolume,"music"):0);
+    this.gainTo(this.fxGain,this.prefs.sfxEnabled?volumeToGain(this.prefs.sfxVolume,"sfx"):0);
+  }
   setPreferences(next:AudioPreferences){
-    if(!this.prefs.musicEnabled&&next.musicEnabled)this.nextNote=0;
-    if(this.prefs.musicEnabled&&!next.musicEnabled)this.nextNote=0;
-    this.prefs=next;
-    if(this.musicGain)this.musicGain.gain.value=next.musicEnabled?next.musicVolume/100*0.18:0;
-    if(this.fxGain)this.fxGain.gain.value=next.sfxEnabled?next.sfxVolume/100*0.35:0;
+    const previous=this.prefs;
+    this.prefs={...next};
+    if(previous.musicEnabled!==next.musicEnabled || (previous.musicVolume===0)!==(next.musicVolume===0))
+      this.nextNote=0;
+    this.applyVolumes();
   }
-  /** Called synchronously from the user pressing Start so autoplay restrictions are respected. */
+  /** Must be called from a user gesture to satisfy browser autoplay rules. */
   start(theme:MusicTheme="pop"){
-    try{
-      const AudioCtor=window.AudioContext;
-      if(!AudioCtor)return;
-      if(!this.context || this.context.state==="closed"){
-        this.context=new AudioCtor();
-        this.musicGain=this.context.createGain();this.musicGain.connect(this.context.destination);
-        this.fxGain=this.context.createGain();this.fxGain.connect(this.context.destination);
-      }
-      void this.context.resume().catch(()=>{/* Browser may defer audio until another gesture. */});
-      this.theme=theme;this.playing=true;this.mutedByPause=false;this.nextNote=0;this.noteIndex=0;
-      this.setPreferences(this.prefs);
-    }catch{/* Audio is optional and must never block play. */}
+    const ctx=this.ensureContext();
+    if(!ctx)return;
+    void ctx.resume().catch(()=>{});
+    this.theme=theme;this.playing=true;this.mutedByPause=false;
+    this.nextNote=0;this.noteIndex=0;this.applyVolumes();
   }
-  pause(){this.mutedByPause=true;this.nextNote=0;}
+  pause(){
+    this.mutedByPause=true;this.nextNote=0;
+    this.applyVolumes();
+  }
   resume(){
     this.mutedByPause=false;this.nextNote=0;
-    if(this.context&&this.context.state==="suspended")void this.context.resume().catch(()=>{});
+    const ctx=this.context;
+    if(ctx&&ctx.state==="suspended")void ctx.resume().catch(()=>{});
+    this.applyVolumes();
   }
-  stopMusic(){this.playing=false;this.nextNote=0;}
+  stopMusic(){
+    this.playing=false;this.nextNote=0;
+    this.gainTo(this.musicGain,0);
+  }
   update(){
     const ctx=this.context;
-    if(!ctx||ctx.state!=="running"||!this.playing||this.mutedByPause||!this.prefs.musicEnabled)return;
-    const beatLength=this.theme==="rhythm"?0.25:0.3;
-    if(!this.nextNote)this.nextNote=ctx.currentTime+0.035;
-    // Only schedule a short horizon, limiting unnecessary audio work.
+    if(!ctx||ctx.state!=="running"||!this.playing||this.mutedByPause||
+      !this.prefs.musicEnabled||this.prefs.musicVolume<=0)return;
+    const beatLength=this.theme==="rhythm"?0.24:0.28;
+    if(!this.nextNote || this.nextNote<ctx.currentTime-0.12)this.nextNote=ctx.currentTime+0.025;
     let scheduled=0;
-    while(this.nextNote<ctx.currentTime+0.10 && scheduled++<3){
-      const sequence=notes[this.theme];
-      const offset=sequence[this.noteIndex%sequence.length];
+    while(this.nextNote<ctx.currentTime+0.13 && scheduled++<3){
+      const offset=notes[this.theme][this.noteIndex%notes[this.theme].length];
       const root=this.theme==="fruit"?220:196;
-      if(this.noteIndex%2===0)this.tone(root*Math.pow(2,offset/12),this.nextNote,0.13,
-        "triangle",this.musicGain,0.4);
-      if(this.noteIndex%4===0)this.tone(root/2,this.nextNote,0.19,"sine",this.musicGain,0.32);
+      // An audible melody every beat instead of a tiny note every second beat.
+      this.tone(root*Math.pow(2,offset/12),this.nextNote,beatLength*0.8,
+        "triangle",this.musicGain,0.30);
+      if(this.noteIndex%2===0){
+        this.tone(root/2,this.nextNote,beatLength*0.86,"sine",this.musicGain,0.23);
+      }
       this.noteIndex++;this.nextNote+=beatLength;
     }
   }
-  cue(type:GameEventType|"milestone"|"start"|"finish"|"countdown"){
+  /** Plays a short sample while paused. Does not resume the game or background music. */
+  previewMusic(theme:MusicTheme=this.theme){
+    if(!this.prefs.musicEnabled||this.prefs.musicVolume===0)return;
+    const ctx=this.ensureContext(),bus=this.previewMusicGain;
+    if(!ctx||!bus)return;
+    void ctx.resume().catch(()=>{});
+    const now=ctx.currentTime+0.025;
+    bus.gain.cancelScheduledValues(now);
+    bus.gain.setValueAtTime(volumeToGain(this.prefs.musicVolume,"music"),now);
+    const root=theme==="fruit"?220:196;
+    this.tone(root,now,0.22,"triangle",bus,0.3);
+    this.tone(root*Math.pow(2,4/12),now+0.24,0.22,"triangle",bus,0.3);
+    this.tone(root*Math.pow(2,7/12),now+0.48,0.22,"triangle",bus,0.3);
+    bus.gain.setValueAtTime(0,now+0.74);
+  }
+  previewSfx(){
+    if(!this.prefs.sfxEnabled||this.prefs.sfxVolume===0)return;
+    const ctx=this.ensureContext();
+    if(!ctx)return;
+    void ctx.resume().catch(()=>{});
+    this.cue("hit",true);
+  }
+  cue(type:GameEventType|"milestone"|"start"|"finish"|"countdown",preview=false){
     const ctx=this.context;
-    if(!ctx||ctx.state!=="running"||this.mutedByPause||!this.prefs.sfxEnabled)return;
-    const t=ctx.currentTime;
+    if(!ctx||ctx.state==="closed"||(!preview&&this.mutedByPause)||
+      !this.prefs.sfxEnabled||this.prefs.sfxVolume<=0)return;
+    const t=ctx.currentTime+0.012;
     if(type==="hit"||type==="collect"||type==="perfect"||type==="good"){
-      this.tone(type==="collect"?740:520,t,0.07,"triangle",this.fxGain,0.8);
-      this.tone(type==="perfect"?1120:790,t+0.045,0.08,"sine",this.fxGain,0.45);
+      this.tone(type==="collect"?740:520,t,0.095,"triangle",this.fxGain,0.28);
+      this.tone(type==="perfect"?1120:790,t+0.047,0.11,"sine",this.fxGain,0.22);
     }else if(type==="milestone"){
-      [660,830,990].forEach((frequency,i)=>this.tone(frequency,t+i*.075,.16,"triangle",this.fxGain,0.7));
+      [660,830,990].forEach((frequency,i)=>this.tone(frequency,t+i*.08,.17,"triangle",this.fxGain,0.28));
     }else if(type==="countdown"){
-      this.tone(740,t,.075,"sine",this.fxGain,.35);
+      this.tone(740,t,.10,"sine",this.fxGain,0.24);
     }else if(type==="finish"){
-      [784,587,392].forEach((frequency,i)=>this.tone(frequency,t+i*.13,.17,"triangle",this.fxGain,0.65));
+      [784,587,392].forEach((frequency,i)=>this.tone(frequency,t+i*.14,.18,"triangle",this.fxGain,0.28));
     }else if(type==="start"){
-      [440,554,659].forEach((frequency,i)=>this.tone(frequency,t+i*.075,.12,"triangle",this.fxGain,0.6));
+      [440,554,659].forEach((frequency,i)=>this.tone(frequency,t+i*.085,.14,"triangle",this.fxGain,0.26));
     }else if(type==="miss"||type==="damage"){
-      this.tone(180,t,.12,"sawtooth",this.fxGain,.45);
+      this.tone(180,t,.14,"sawtooth",this.fxGain,0.18);
     }else if(type==="bonus"){
-      this.tone(880,t,.15,"sine",this.fxGain,.6);
+      this.tone(880,t,.16,"sine",this.fxGain,0.24);
     }
   }
   private tone(frequency:number,start:number,duration:number,shape:OscillatorType,
@@ -86,15 +154,17 @@ export class AudioManager {
     const osc=ctx.createOscillator(),gain=ctx.createGain();
     osc.type=shape;osc.frequency.value=frequency;
     gain.gain.setValueAtTime(0.0001,start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume*.35),start+.012);
-    gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-    osc.connect(gain);gain.connect(output);osc.start(start);osc.stop(start+duration+.015);
+    gain.gain.exponentialRampToValueAtTime(Math.max(.0002,volume),start+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001,start+duration);
+    osc.connect(gain);gain.connect(output);osc.start(start);osc.stop(start+duration+0.015);
     osc.onended=()=>{osc.disconnect();gain.disconnect();};
   }
   destroy(){
-    this.stopMusic();
+    this.playing=false;this.nextNote=0;
     const previous=this.context;
-    this.context=null;this.musicGain=null;this.fxGain=null;
+    this.context=null;
+    this.musicGain?.disconnect();this.fxGain?.disconnect();this.previewMusicGain?.disconnect();
+    this.musicGain=null;this.fxGain=null;this.previewMusicGain=null;
     if(previous&&previous.state!=="closed")void previous.close().catch(()=>{});
   }
 }
