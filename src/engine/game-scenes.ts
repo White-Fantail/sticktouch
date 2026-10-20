@@ -74,7 +74,7 @@ function paintPoseGuide(ctx:CanvasRenderingContext2D,round:PoseState,width:numbe
   ctx.translate(x+w*.22,y+48);
   const gw=w*.56,gh=h*.65;
   drawGoalFigure(ctx,target.id,gw,gh);
-  ctx.setTransform(1,0,0,1,0,0);
+  ctx.translate(-x-w*.22,-y-48);
   const meter=Math.min(1,round.hold/POSE_HOLD_SECONDS);
   ctx.fillStyle="#29435a";ctx.fillRect(x+13,y+h-23,w-26,8);
   ctx.fillStyle="#8ff7c7";ctx.fillRect(x+13,y+h-23,(w-26)*meter,8);
