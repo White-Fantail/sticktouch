@@ -69,6 +69,26 @@ export const GAMES: readonly GameDefinition[] = [
    description:"손으로 택배를 집어 같은 색 배송함까지 움직여 놓으세요.",
    category:"move",status:"available",duration:"60초",bodyParts:"양손",
    artwork:"fruit",emoji:"📦",feedback:{musicTheme:"fruit"}}
+  {id:"boss-raid",title:"보스 레이드",tagline:"약점을 공격하고 위험을 피하라!",
+   description:"보스의 황금 약점이 열릴 때 터치하고 예고된 붉은 공격은 피하는 페이즈형 배틀입니다.",
+   category:"dodge",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"meteor",emoji:"👾",feedback:{musicTheme:"pop"}},
+  {id:"gravity-lab",title:"중력 미로",tagline:"손의 높이로 공을 굴려요!",
+   description:"양손의 높이 차로 공을 기울여 미로와 움직이는 위험물을 피해 목표에 도달하세요.",
+   category:"move",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"fruit",emoji:"🧲",feedback:{musicTheme:"fruit"}},
+  {id:"shadow-sync",title:"그림자 싱크",tagline:"움직이는 그림자와 하나가 되세요!",
+   description:"두 목표가 움직이는 궤적을 보고, 양손을 함께 맞춰 정확한 타이밍에 유지해요.",
+   category:"pose",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"pose",emoji:"🪞",feedback:{musicTheme:"rhythm"}},
+  {id:"constellation-trace",title:"별자리 그리기",tagline:"우주에 별자리를 연결해요!",
+   description:"한 손으로 번호가 있는 다섯 별을 순서대로 이어 아름다운 별자리를 완성하세요.",
+   category:"move",status:"available",duration:"60초",bodyParts:"한 손",
+   artwork:"star",emoji:"🌌",feedback:{musicTheme:"fruit"}},
+  {id:"dual-portals",title:"듀얼 포털",tagline:"두 손으로 차원을 연결하세요!",
+   description:"움직이는 두 포털에 양손을 동시에 유지해 에너지 전송을 성공시키세요.",
+   category:"pose",status:"available",duration:"60초",bodyParts:"양손",
+   artwork:"color",emoji:"🌀",feedback:{musicTheme:"rhythm"}}
 ] as const;
 export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);
