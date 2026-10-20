@@ -159,3 +159,16 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 실제 비교를 위해 각 손의 현재 입력 소스(HAND / POSE / 인식 없음)를 설정 패널에 표시합니다. **손의 터치 원이 청록색이면 HAND, 주황색이면 POSE 추정**입니다. 이는 모델이 로드됐는지 여부가 아니라 그 프레임의 실제 게임 앵커 선택을 기준으로 합니다. 스틱맨 선은 계속 Pose에서 가져오며, 토글을 꺼도 정밀 모델 객체는 현재 카메라 세션 동안 메모리에 있지만 추론은 중단됩니다.
 
 평소 자세에서 두 모델의 위치가 비슷할 수 있으며, 추가 손 모델의 필요성은 다양한 각도/가림/반응속도/FPS를 실기기에서 비교해 판단합니다. `main` 병합은 별도 요청에 따른 fast-forward-only 규칙을 유지합니다.
+
+## Vercel 자동 배포 정책 (2026-10-21)
+
+저장소 루트 `vercel.json`에서 **`git.deploymentEnabled.dev = false`**, **`git.deploymentEnabled.main = true`**로 고정합니다. `dev` 푸시는 **Vercel에서 자동 Deployment/Build를 생성하지 않고**, `main` 푸시만 자동 프로덕션 배포합니다. 이는 단순 `ignoreCommand` (빌드 요청 후 skip)보다 낭비가 적습니다.
+
+- 기능 개발: `dev`에서 작업하고 **GitHub Actions 테스트·TypeScript 검사·빌드는 계속 실행**합니다(이 CI는 Vercel 빌드 쿼터와 별개).
+- 실기기 개발 테스트: localhost / GitHub Codespaces HTTPS / 사용자에게 승인된 임시 HTTPS 터널. `dev` 자동 Vercel Preview 링크는 만들어지지 않습니다.
+- 릴리스: 검증된 `dev` SHA를 사용자가 승인하면 `main`으로 **fast-forward-only** 반영하고 Vercel 자동 배포합니다.
+- 보충: 해당 규칙은 이 프로젝트의 Git 연동 자동 배포 정책입니다. **명시적 수동 배포, Deployment Hook, 다른 프로젝트의 자동 빌드**까지 차단하는 것은 아닙니다.
+
+근거: [Vercel Git configuration](https://vercel.com/docs/project-configuration/git-configuration).
+
+릴리스 정책: `dev` Vercel 자동 배포 비활성화 상태를 유지하고, `main` 반영 직전에 GitHub Actions 성공 및 strict fast-forward 관계를 확인한다. `vercel.json`의 `git.deploymentEnabled` 설정을 임의로 삭제·변경하면 안 된다.
