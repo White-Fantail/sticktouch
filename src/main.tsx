@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
+import { matchHandPalms } from "./hands";
 import {
-  BONES, coverRect, getHitpoints, hitBalloons, mapPoint, newBalloon, stepBalloons,
+  BONES, coverRect, getHitpoints, hitBalloons, mapPoint, newBalloon, smoothHitpoints, stepBalloons,
   type Balloon, type Landmark, type Point, type Viewport
 } from "./core";
 import "./style.css";
@@ -11,6 +12,7 @@ type DisplayMode = "camera" | "both" | "stickman";
 type CameraSide = "user" | "environment";
 type Phase = "idle" | "loading" | "ready" | "error";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
 const ROUND_SECONDS = 60;
 const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간으로 인식합니다.";
@@ -67,6 +69,9 @@ function App(){
   const [message,setMessage]=useState(INITIAL_MESSAGE);
   const [mode,setMode]=useState<DisplayMode>("both");
   const [rings,setRings]=useState(true);
+  const [preciseHands,setPreciseHands]=useState(true);
+  const [handModelStatus,setHandModelStatus]=useState<"pending"|"ready"|"fallback">("pending");
+  const [palmTracking,setPalmTracking]=useState(false);
   const [hitbox,setHitbox]=useState(100);
   const [side,setSide]=useState<CameraSide>("user");
   const [detected,setDetected]=useState(false);
@@ -79,13 +84,16 @@ function App(){
   const wrapRef=useRef<HTMLDivElement>(null);
   const streamRef=useRef<MediaStream|null>(null);
   const trackerRef=useRef<PoseLandmarker|null>(null);
+  const handTrackerRef=useRef<HandLandmarker|null>(null);
   const animationRef=useRef<number>(0);
   const sessionRef=useRef(0);
-  const settingsRef=useRef({mode,rings,hitbox,side});
+  const settingsRef=useRef({mode,rings,hitbox,side,preciseHands});
   const gameRef=useRef({playing:false,score:0,time:ROUND_SECONDS,spawning:0,seq:0,balls:[] as Balloon[]});
   const posesRef=useRef<Landmark[]|undefined>(undefined);
+  const handsRef=useRef<Landmark[][]>([]);
+  const smoothRef=useRef<Point[]>([]);
   const mountedRef=useRef(true);
-  settingsRef.current={mode,rings,hitbox,side};
+  settingsRef.current={mode,rings,hitbox,side,preciseHands};
 
   const stop = useCallback(()=>{
     sessionRef.current++;
@@ -94,8 +102,10 @@ function App(){
     streamRef.current=null;
     const video=videoRef.current;if(video){video.pause();video.srcObject=null;}
     trackerRef.current?.close();trackerRef.current=null;
-    posesRef.current=undefined;gameRef.current.playing=false;
-    if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);}
+    handTrackerRef.current?.close();handTrackerRef.current=null;
+    handsRef.current=[];smoothRef.current=[];posesRef.current=undefined;
+    gameRef.current.playing=false;
+    if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");}
   },[]);
   useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
 
@@ -106,6 +116,7 @@ function App(){
     if(!navigator.mediaDevices?.getUserMedia){setPhase("error");setMessage("이 브라우저는 카메라 접근을 지원하지 않습니다.");return;}
     setPhase("loading");setMessage("카메라를 연결하고 인식 모델을 준비하는 중…");
     let stream:MediaStream|null=null;let detector:PoseLandmarker|null=null;
+    let handDetector:HandLandmarker|null=null;
     try{
       try{
         stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{
@@ -130,8 +141,32 @@ function App(){
         detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL,delegate:"CPU"},runningMode:"VIDEO",numPoses:1});
       }
       if(token!==sessionRef.current){detector.close();return;}
-      trackerRef.current=detector;setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
-      let last=performance.now(),lastInference=0,lastVideoTime=-1,lastDetected=false,lastHud=0;
+      trackerRef.current=detector;
+      // Hand tracking is optional: a model/network/GPU failure must not break Pose.
+      try {
+        try {
+          handDetector=await HandLandmarker.createFromOptions(vision,{
+            baseOptions:{modelAssetPath:HAND_MODEL,delegate:"GPU"},
+            runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:0.55,
+            minHandPresenceConfidence:0.55,minTrackingConfidence:0.5
+          });
+        } catch {
+          handDetector=await HandLandmarker.createFromOptions(vision,{
+            baseOptions:{modelAssetPath:HAND_MODEL,delegate:"CPU"},
+            runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:0.55,
+            minHandPresenceConfidence:0.55,minTrackingConfidence:0.5
+          });
+        }
+      } catch(error) {
+        console.warn("Hand model unavailable, using Pose palm estimate",error);
+      }
+      if(token!==sessionRef.current){handDetector?.close();detector.close();return;}
+      handTrackerRef.current=handDetector;
+      setHandModelStatus(handDetector?"ready":"fallback");
+      setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
+      let last=performance.now(),lastPoseInference=0,lastHandInference=0,lastVideoTime=-1;
+      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0;
+      let handInterval=160;
       const tick=(now:number)=>{
         if(token!==sessionRef.current)return;
         animationRef.current=requestAnimationFrame(tick);
@@ -144,15 +179,40 @@ function App(){
         if(canvas.width!==pw||canvas.height!==ph){canvas.width=pw;canvas.height=ph;}
         const ctx=canvas.getContext("2d");if(!ctx)return;
         ctx.setTransform(dpr,0,0,dpr,0,0);
-        if(!document.hidden && video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA &&
-          video.currentTime!==lastVideoTime && now-lastInference>=85) {
-          lastVideoTime=video.currentTime;lastInference=now;
-          try{posesRef.current=detector!.detectForVideo(video,now).landmarks[0] as Landmark[]|undefined;}
-          catch(err){console.warn("Pose tracking frame failed",err);posesRef.current=undefined;}
-        }
         const s=settingsRef.current;
+        if(!document.hidden && video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA &&
+          video.currentTime!==lastVideoTime) {
+          let didInfer=false;
+          if(now-lastPoseInference>=95) {
+            lastPoseInference=now;didInfer=true;
+            try{posesRef.current=detector!.detectForVideo(video,now).landmarks[0] as Landmark[]|undefined;}
+            catch(err){console.warn("Pose tracking frame failed",err);posesRef.current=undefined;}
+          }
+          // Independently throttle hand detection to keep low-end phones responsive.
+          if(s.preciseHands && handDetector && now-lastHandInference>=handInterval) {
+            lastHandInference=now;didInfer=true;
+            const began=performance.now();
+            try{
+              handsRef.current=handDetector.detectForVideo(video,now).landmarks as Landmark[][];
+              lastHandSample=now;
+              const cost=performance.now()-began;
+              handInterval=cost>70?Math.min(450,handInterval+50):Math.max(150,handInterval-8);
+            }catch(err){
+              console.warn("Hand tracking failed; continuing with Pose palm estimates",err);
+              handsRef.current=[];handDetector.close();handDetector=null;
+              handTrackerRef.current=null;setHandModelStatus("fallback");
+            }
+          }
+          if(didInfer)lastVideoTime=video.currentTime;
+        }
         const v:Viewport={width,height,videoWidth:video.videoWidth,videoHeight:video.videoHeight,mirror:s.side==="user"};
-        const points=getHitpoints(posesRef.current,v,s.hitbox);
+        const anchors=s.preciseHands && handDetector && now-lastHandSample<350
+          ?matchHandPalms(posesRef.current,handsRef.current):{};
+        const palm=!!(anchors.left||anchors.right);
+        if(palm!==lastPalm){lastPalm=palm;setPalmTracking(palm);}
+        const raw=getHitpoints(posesRef.current,v,s.hitbox,anchors);
+        const points=smoothHitpoints(raw,smoothRef.current,dt);
+        smoothRef.current=points;
         const found=points.length>0;
         if(found!==lastDetected){lastDetected=found;setDetected(found);}
         const g=gameRef.current;
@@ -172,6 +232,7 @@ function App(){
       animationRef.current=requestAnimationFrame(tick);
     }catch(error){
       detector?.close();
+      handDetector?.close();
       stream?.getTracks().forEach(t=>t.stop());
       if(token!==sessionRef.current)return;
       streamRef.current=null;trackerRef.current=null;
@@ -205,7 +266,7 @@ function App(){
     </section>
     <section className="game-layout">
       <div className="stage-panel">
-        <div className="stage-top"><span className="live-indicator"><b className={phase==="ready"?"on":""}></b>{phase==="ready"?(detected?"관절 추적 중":"카메라 연결됨"):phase==="loading"?"준비 중":"카메라 꺼짐"}</span>
+        <div className="stage-top"><span className="live-indicator"><b className={phase==="ready"?"on":""}></b>{phase==="ready"?(detected?(palmTracking&&preciseHands?"관절 + 손바닥 추적 중":"관절 추적 중"):"카메라 연결됨"):phase==="loading"?"준비 중":"카메라 꺼짐"}</span>
         <span>풍선 터뜨리기 · 60초</span></div>
         <div className="stage" ref={wrapRef}>
           <video ref={videoRef} className="source-video" playsInline muted aria-hidden="true"/>
@@ -232,6 +293,9 @@ function App(){
           <button type="button" className={mode==="both"?"selected":""} aria-pressed={mode==="both"} onClick={()=>setMode("both")}><span>♧</span>영상 + 스틱맨</button>
           <button type="button" className={mode==="stickman"?"selected":""} aria-pressed={mode==="stickman"} onClick={()=>setMode("stickman")}><span>♙</span>스틱맨만</button>
         </div></div>
+        <div className="setting-group"><div className="setting-line"><label htmlFor="precision">손바닥 정밀 추적</label><input id="precision" type="checkbox" checked={preciseHands} onChange={e=>setPreciseHands(e.target.checked)}/></div>
+          <p>{!preciseHands?"기본 Pose 추정만 사용합니다. 느린 기기에서 비교해 보세요.":handModelStatus==="fallback"?"Hand 모델을 로드하지 못해 Pose 손바닥 추정으로 동작합니다.":handModelStatus==="ready"?(palmTracking?"손바닥 21개 지점으로 위치를 계산 중입니다.":"손을 화면에 보여 주세요. 손을 찾지 못하면 Pose로 보완합니다."):"카메라 시작 시 Hand 모델을 함께 준비합니다."}</p>
+        </div>
         <div className="setting-group"><div className="setting-line"><label htmlFor="rings">터치 포인트 표시</label><input id="rings" type="checkbox" checked={rings} onChange={e=>setRings(e.target.checked)}/></div><p>손·발·머리의 충돌 영역을 원으로 표시해요.</p></div>
         <div className="setting-group"><div className="setting-line"><label htmlFor="size">터치 판정 크기</label><output htmlFor="size">{hitbox}%</output></div>
           <input id="size" className="slider" type="range" min="50" max="200" step="10" value={hitbox} onChange={e=>setHitbox(Number(e.target.value))}/>

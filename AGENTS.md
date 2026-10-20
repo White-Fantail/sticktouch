@@ -144,3 +144,9 @@ git push origin main
 
 
 개발 중 웹 테스트에는 로컬 `localhost` 외에 `.devcontainer/devcontainer.json`을 이용한 Codespaces 임시 HTTPS 포트 포워딩을 사용할 수 있다. 공개 배포와 Codespaces 프리뷰는 구별할 것.
+
+## 2026-10-21 — Hand Landmarker 통합
+
+기본 입력은 Pose + Hand Landmarker를 함께 사용한다. `src/hands.ts`에서 모델의 21개 손 지점을 손바닥 중심으로 계산하고, Pose 손목과 최단 거리로 왼손/오른손을 대응시킨다. MediaPipe 모델의 handedness 문자열만 믿거나 미러링된 화면 좌표에서 신체 방향을 결정하지 않는다. `src/core.ts`에서 손바닥 중심을 원형 판정 입력으로 사용하며, 손 인식이 실패할 경우 Pose 손/전완 방향 기반 추정으로 폴백하고 프레임 간 약한 보간을 적용한다. Pose 손목이 충분히 추적되지 않는 경우 외부/잘못된 손을 임의로 게임 입력에 연결하지 않는다.
+
+Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사양 장치에서는 더 느리게 한다. Hand 모델 로드 실패는 카메라/게임 시작 전체의 실패가 아니다. 손바닥 정밀 추적 토글로 부담을 비교할 수 있어야 한다. 추적 전환·미러링·정규화/화면 잘림·스코어링 테스트 유지. **main 병합은 별도 요청 후 ff-only**.

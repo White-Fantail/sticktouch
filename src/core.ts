@@ -2,6 +2,8 @@
 export type Landmark = { x: number; y: number; visibility?: number; presence?: number };
 export type BodyPart = "leftHand" | "rightHand" | "head" | "leftFoot" | "rightFoot";
 export type Point = { part: BodyPart; x: number; y: number; radius: number };
+/** Camera-normalized hand centers, assigned to the same sides as the Pose wrist indices. */
+export type HandAnchors = Partial<Record<"left" | "right", Pick<Landmark, "x" | "y">>>;
 export type Viewport = { width: number; height: number; videoWidth: number; videoHeight: number; mirror: boolean };
 export type Balloon = { id: number; x: number; y: number; radius: number; vx: number; vy: number; color: string };
 export const BONES: ReadonlyArray<readonly [number, number]> = [
@@ -24,7 +26,31 @@ function reliable(p: Landmark | undefined): p is Landmark {
     p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 &&
     (p.visibility ?? 1) >= 0.5 && (p.presence ?? 1) >= 0.5;
 }
-export function getHitpoints(pose: Landmark[] | undefined, v: Viewport, scalePercent: number): Point[] {
+/** Coarse palm estimate for frames where the dedicated hand detector misses. */
+export function posePalmCenter(pose: readonly Landmark[], side: "left" | "right"): Landmark | null {
+  const [wristIndex, pinkyIndex, indexIndex, elbowIndex] =
+    side === "left" ? [15,17,19,13] : [16,18,20,14];
+  const wrist = pose[wristIndex], pinky = pose[pinkyIndex], index = pose[indexIndex];
+  if (!reliable(wrist)) return null;
+  if (reliable(pinky) && reliable(index)) {
+    return {
+      x: wrist.x * 0.2 + pinky.x * 0.4 + index.x * 0.4,
+      y: wrist.y * 0.2 + pinky.y * 0.4 + index.y * 0.4
+    };
+  }
+  const elbow = pose[elbowIndex];
+  if (reliable(elbow)) {
+    // Follow the forearm beyond the wrist when hand landmarks are unavailable.
+    return { x: wrist.x + (wrist.x - elbow.x) * 0.24,
+      y: wrist.y + (wrist.y - elbow.y) * 0.24 };
+  }
+  return wrist; // Last resort: keep the game playable.
+}
+
+export function getHitpoints(
+  pose: Landmark[] | undefined, v: Viewport, scalePercent: number,
+  handAnchors: HandAnchors = {}
+): Point[] {
   if (!pose || !v.videoWidth || !v.videoHeight) return [];
   const leftShoulder = pose[11], rightShoulder = pose[12];
   const width = reliable(leftShoulder) && reliable(rightShoulder)
@@ -33,16 +59,41 @@ export function getHitpoints(pose: Landmark[] | undefined, v: Viewport, scalePer
     : Math.min(v.width, v.height) * 0.23;
   const radius = Math.max(12, Math.min(56, width * 0.22)) *
     Math.max(0.5, Math.min(2, scalePercent / 100));
-  const entries: ReadonlyArray<readonly [BodyPart, number]> = [
-    ["leftHand",15], ["rightHand",16], ["head",0], ["leftFoot",31], ["rightFoot",32]
+  const points: Point[] = [];
+  for (const side of ["left", "right"] as const) {
+    // Pose wrist must remain reliable so a stray hand is never assigned to the player.
+    const poseWrist = pose[side === "left" ? 15 : 16];
+    if (!reliable(poseWrist)) continue;
+    const anchor = handAnchors[side] ?? posePalmCenter(pose, side);
+    if (!anchor || !reliable(anchor)) continue;
+    const xy = mapPoint(anchor.x, anchor.y, v);
+    if (xy.x < 0 || xy.x > v.width || xy.y < 0 || xy.y > v.height) continue;
+    points.push({ part: side === "left" ? "leftHand" : "rightHand", ...xy, radius });
+  }
+  const others: ReadonlyArray<readonly [BodyPart, number]> = [
+    ["head",0], ["leftFoot",31], ["rightFoot",32]
   ];
-  return entries.flatMap(([part, idx]) => {
-    const p = pose[idx];
-    if (!reliable(p)) return [];
-    const xy = mapPoint(p.x, p.y, v);
-    // Invisible/cropped landmarks must never hit objects at the edge.
-    if (xy.x < 0 || xy.x > v.width || xy.y < 0 || xy.y > v.height) return [];
-    return [{ part, ...xy, radius: part === "head" ? radius * 1.15 : radius }];
+  for (const [part,idx] of others) {
+    const landmark = pose[idx];
+    if (!reliable(landmark)) continue;
+    const xy = mapPoint(landmark.x,landmark.y,v);
+    if (xy.x < 0 || xy.x > v.width || xy.y < 0 || xy.y > v.height) continue;
+    points.push({ part, ...xy, radius: part === "head" ? radius * 1.15 : radius });
+  }
+  return points;
+}
+
+/** Smooth transitions between precise hand tracking and coarse Pose fallback. */
+export function smoothHitpoints(current: Point[], previous: readonly Point[], deltaSeconds: number): Point[] {
+  const alpha = 1 - Math.exp(-Math.max(0, deltaSeconds) / 0.055);
+  return current.map(point => {
+    const before = previous.find(other => other.part === point.part);
+    if (!before) return point;
+    return {
+      ...point,
+      x: before.x + (point.x - before.x) * alpha,
+      y: before.y + (point.y - before.y) * alpha
+    };
   });
 }
 export function circlesOverlap(a: { x:number;y:number;radius:number }, b: { x:number;y:number;radius:number }) {
