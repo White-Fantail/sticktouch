@@ -70,7 +70,7 @@ test("match hands to Pose wrist identity even when model order reverses",()=>{
   const matched=matchHandPalms(pose,[makeHand(0.75,0.82),makeHand(0.25,0.18)]);
   assert.ok(matched.left&&matched.right);
   assert.ok(matched.left.x<matched.right.x);
-  assert.equal(matched.right.x,0.8095);
+  assert.ok(Math.abs(matched.right.x-0.8095)<1e-9);
 });
 test("a single detected hand is never assigned twice",()=>{
   const pose=makePose();
