@@ -11,7 +11,7 @@ A game module recognizes valid actions and emits domain events. The platform con
 - src/engine/game-feel.ts: GameFeelSession and GameEvent; duplicate event IDs and repeated success on the same target are rejected. Successful actions increase the combo, miss/damage reset it, and bonus grants points without changing combo.
 - src/engine/audio.ts: Web Audio API synthesized BGM and SFX, music/SFX volume gains, start on user click, pause/resume, finish cue, and cleanup. This MVP does not bundle copyrighted background tracks.
 - src/engine/effects.ts: bounded Canvas particles, floating score feedback, combo milestone banners, full/light/off quality selection.
-- src/engine/records.ts: browser-local personal best indexed by game ID and ruleset version, including score, combo, attempts and hitbox multiplier.
+- src/engine/records.ts: browser-local personal best indexed by game ID, ruleset version, and hitbox multiplier, including score, combo and attempts.
 - src/games/balloon-pop/game.ts: pure balloon game emits hit and miss domain events while retaining hit detection in src/core.ts.
 - src/components/GameStage.tsx: adapts game events to feedback, maintains common score/time/combo HUD, audio quick mute, and rich result display.
 - src/settings/settings.ts and src/pages/SettingsPage.tsx: independent BGM, SFX, volume and effect quality preferences.
@@ -33,7 +33,7 @@ Default scores: +10 base for successful hit; 1–4 combo ×1.0, 5–9 ×1.2, 10�
 
 ## Verification
 
-Unit tests: tests/game-feel.test.ts, tests/balloon-round.test.ts, tests/settings.test.ts. Run npm run check, npm run test, npm run build. On actual iOS Safari, Android Chrome and desktop browsers verify audio unlock, quick mute, tab pause/resume, sustained FPS, lifecycle cleanup, and Canvas performance at each effects quality level.
+Unit tests: tests/game-feel.test.ts, tests/balloon-round.test.ts, tests/settings.test.ts, tests/records.test.ts. Run npm run check, npm run test, npm run build. On actual iOS Safari, Android Chrome and desktop browsers verify audio unlock, quick mute, tab pause/resume, sustained FPS, lifecycle cleanup, and Canvas performance at each effects quality level.
 
 ## Future development
 
