@@ -6,6 +6,7 @@ import {poseTarget,POSE_HOLD_SECONDS,type PoseName} from "../games/pose-challeng
 import type {GameRound} from "../games/runtime";
 import {paintMiniScene} from "../games/mini-arcade/scene";
 import {paintAdvancedScene} from "../games/advanced-arcade/scene";
+import {paintExpertScene} from "../games/expert-arcade/scene";
 
 export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,
   pose:Landmark[]|undefined,points:Point[],view:Viewport,round:GameRound,
@@ -24,6 +25,9 @@ export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoEleme
     case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
       paint(ctx,video,pose,[],points,view,mode,rings);
       paintAdvancedScene(ctx,round.state,width,height);return;
+    case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
+      paint(ctx,video,pose,[],points,view,mode,rings);
+      paintExpertScene(ctx,round.state,width,height);return;
   }
 }
 type FruitState=Extract<GameRound,{kind:"fruit-catch"}>["state"];
