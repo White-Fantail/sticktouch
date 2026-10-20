@@ -185,3 +185,8 @@ Codespaces는 일시적인 개발 서버이지 상시 운영되는 배포 URL이
 - `src/app/App.tsx`와 `src/app/navigation.tsx`가 SPA 화면 전환을 담당합니다. `src/components/GameStage.tsx`가 카메라·추론 수명주기, `src/engine/renderer.ts`가 화면 그리기, `src/games/balloon-pop/game.ts`가 풍선 게임 규칙을 맡습니다. `src/settings/*`가 공통 설정을 관리합니다.
 - Vercel의 `vercel.json`에 SPA deep-link fallback을 추가했습니다. 기존 **`git.deploymentEnabled.dev = false`** 자동 Preview 빌드 비활성화는 그대로 유지합니다. `main` 병합은 별도 승인 전까지 수행하지 않습니다.
 - 게임별 난이도/시간, 사운드, 리더보드는 향후 기능입니다. 별도의 게임 설정 컴포넌트를 추가하기 쉬운 구조만 준비한 상태입니다.
+
+
+## Game Feel Engine (2026-10-21)
+
+공통 점수·콤보, Web Audio 기반 배경음악과 효과음, 파티클·점수 팝업, 강화된 HUD/결과 화면, 로컬 최고 기록을 dev 브랜치의 풍선 게임에 통합했습니다. 설정 → 게임 기본값에서 음악/효과음의 켜기·끄기와 볼륨, 시각 효과 품질을 선택할 수 있습니다. 소리는 사용자 게임 시작 클릭 시 활성화됩니다. 실제 모바일 실기기 성능과 오디오 재생은 아직 확인해야 합니다. 자세한 이벤트 계약과 개발 가이드는 [Game Feel Engine](docs/GAME_FEEL_ENGINE.md) 참고.
