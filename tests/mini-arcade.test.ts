@@ -11,7 +11,7 @@ const at=(p:{x:number;y:number})=>hand(p.x*W,p.y*H);
 const rand=()=>0;
 
 test("all five games are registered, playable, and use the shared game runtime",()=>{
-  assert.equal(GAMES.length,13);
+  assert.equal(GAMES.length,18);
   for(const id of MINI_GAME_IDS){
     assert.equal(GAMES.find(g=>g.id===id)?.status,"available");
     assert.equal(createGameRound(id).kind,id);
