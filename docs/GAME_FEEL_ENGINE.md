@@ -55,3 +55,10 @@ Only commit feature work to dev. Do not merge to main without user request; stri
 **Shared fields:** settings update() remains the single persistence path for toggles, BGM/SFX sliders, presentation mode, touch rings, hitbox scale and effect quality. The full settings page stays available outside gameplay. A per-session quick mute is cleared by explicit sound adjustments to avoid apparently unresponsive sliders.
 
 **Tests:** tests/audio.test.ts checks both channel gain changes and paused previews with fake Web Audio; tests/quick-settings.test.ts verifies volume scaling and pause restoration. Browser/real speaker output still requires hardware verification.
+
+
+## Additional integrated games (2026-10-21, dev)
+
+`src/games/runtime.ts` now switches among `balloon-pop`, `fruit-catch`, and `pose-challenge` while preserving the shared `GameFeelSession` event pipeline. Fruit emits `collect`, `miss`, or `damage`; pose emits `perfect`, `good`, or `miss` with unique per-target IDs. The shared HUD, BGM/SFX, settings overlay, particles, score/combo calculation and records are reused unchanged. `src/engine/game-scenes.ts` owns the scene artwork, so each game module stays focused on deterministic rule logic.
+
+When input landmarks disappear, fruit/pose updates freeze rather than registering inaccurate failures. Each mini-game runs a 60-second active-play round; actual elapsed wall time can be longer during tracking loss. `src/core.ts` adds optional `fit: contain` viewports for the fruit-camera inset without modifying existing cover projection defaults. Camera/video remain client-side. Real device testing of recognition and visual timing remains necessary.
