@@ -152,7 +152,7 @@ Codespaces는 일시적인 개발 서버이지 상시 운영되는 배포 URL이
 
 **Hand 모델 사용 ON**은 `Hand Landmarker`를 실행해 손당 21개 랜드마크 기반 손바닥 중심을 우선 적용하며, 인식에 실패하면 Pose로 추정합니다. **OFF**는 Hand 추론을 멈추지만, Pose의 손목·손가락·팔꿈치 좌표를 이용해 **계속 손바닥 중심을 추정합니다**. 따라서 둘 다 손바닥에 터치 원이 표시되는 것이 정상입니다.
 
-실제 비교를 위해 각 손의 현재 입력 소스(HAND / POSE / 인식 없음)를 설정 패널에 표시합니다. **손의 터치 원이 청록색이면 HAND, 주황색이면 POSE 추정**입니다. 이는 모델이 로드됐는지 여부가 아니라 그 프레임의 실제 게임 앵커 선택을 기준으로 합니다. 스틱맨 선은 계속 Pose에서 가져오며, 토글을 꺼도 정밀 모델 객체는 현재 카메라 세션 동안 메모리에 있지만 추론은 중단됩니다.
+실제 비교를 위해 각 손의 현재 입력 소스(HAND / POSE / 인식 없음)는 게임 중 ⚙ 간편 설정의 진단 영역에서 확인할 수 있습니다(고급 설정의 진단 옵션 활성화 시). **손의 터치 원이 청록색이면 HAND, 주황색이면 POSE 추정**입니다. 이는 모델이 로드됐는지 여부가 아니라 그 프레임의 실제 게임 앵커 선택을 기준으로 합니다. 스틱맨 선은 계속 Pose에서 가져오며, 토글을 꺼도 정밀 모델 객체는 현재 카메라 세션 동안 메모리에 있지만 추론은 중단됩니다.
 
 평소 자세에서 두 모델의 위치가 비슷할 수 있으며, 추가 손 모델의 필요성은 다양한 각도/가림/반응속도/FPS를 실기기에서 비교해 판단합니다. `main` 병합은 별도 요청에 따른 fast-forward-only 규칙을 유지합니다.
 
@@ -179,7 +179,7 @@ Codespaces는 일시적인 개발 서버이지 상시 운영되는 배포 URL이
 | `/settings` | 화면 표시, 터치 크기, 카메라 방향, 정밀 손 추적, 입력 진단 |
 
 - **카메라 권한은 게임 플레이 페이지에서 사용자가 명시적으로 시작할 때만 요청합니다.** 홈/탐색/설정 진입에서 카메라를 자동 실행하지 않습니다. 플레이 페이지에서 벗어나면 스트림·MediaPipe 인스턴스·AnimationFrame을 정리합니다.
-- **표시 모드 빠른 전환**은 플레이 아래쪽에 남기고, 자세한 설정 UI는 `/settings`로 이전했습니다. 기존 손바닥 정밀 ON/OFF, 원 표시, 실제 판정 크기 옵션을 유지합니다.
+- **플레이 화면 하단의 DISPLAY 전환과 추적 진단 상태 줄은 제거**했습니다. 화면 모드는 `/settings` 또는 게임 중 ⚙ 간편 설정에서 변경하며, 화면 크기·전체화면 여부와 관계없이 아래쪽에는 중복 설정 UI를 표시하지 않습니다. 기존 손바닥 정밀 ON/OFF, 원 표시, 실제 판정 크기 옵션을 유지합니다.
 - 공통 설정은 **현재 브라우저의 `localStorage`** 에 자동 저장됩니다(`sticktouch:settings:v1`). 영상·관절 데이터·게임 녹화는 저장하지 않습니다.
 - `src/games/registry.ts`에 게임 카탈로그를 등록합니다. 현재 실행 가능한 게임은 **풍선 터뜨리기** 한 개이며, 과일 바구니/포즈 챌린지는 개발 예정으로 노출합니다. 그 외 게임을 플레이할 수 있는 것처럼 표현하지 않습니다.
 - `src/app/App.tsx`와 `src/app/navigation.tsx`가 SPA 화면 전환을 담당합니다. `src/components/GameStage.tsx`가 카메라·추론 수명주기, `src/engine/renderer.ts`가 화면 그리기, `src/games/balloon-pop/game.ts`가 풍선 게임 규칙을 맡습니다. `src/settings/*`가 공통 설정을 관리합니다.
@@ -201,3 +201,7 @@ The quick dialog updates the **same SettingsContext and stored preferences** as 
 BGM synthesis is now substantially more audible; master BGM/SFX gains respond directly and smoothly to percentages instead of being multiplied by several tiny constants. New profiles default to music volume **55%** (previously 35%); existing saved preferences retain their chosen percentages but use the corrected audio gain. Use preview buttons or release a slider to hear audio while gameplay remains paused. Audio output still depends on device volume/browser permissions.
 
 Tests added in tests/quick-settings.test.ts and tests/audio.test.ts; actual Mac/iOS/Android audio and layout validation remains necessary.
+
+### 간편 설정으로 화면 조작 통합 (2026-10-21, dev)
+
+플레이 패널 아래의 DISPLAY 3단 버튼과 상시 디버그 상태 줄을 제거했습니다. 일반 화면과 전체 화면 모두 같은 구성이며, 일시정지·종료·카메라 끄기 등의 **게임 조작만** 하단에 남깁니다. 표시 방식은 기존 전체 설정 또는 게임 화면 ⚙ 간편 설정에서 바꿀 수 있습니다. 고급 진단이 켜져 있어도 HAND/POSE 출처·모델 상태는 간편 설정을 연 동안에만 보여줘서 게임 화면을 가리지 않습니다. 모든 설정은 이전과 같은 브라우저 로컬 설정에 저장됩니다.
