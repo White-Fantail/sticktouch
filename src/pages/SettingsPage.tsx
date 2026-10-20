@@ -45,7 +45,38 @@ export function SettingsPage() {
         {tab==="game" && <>
           <h2>게임 기본값</h2><p className="panel-description">게임별 시간과 난이도는 향후 각 게임의 시작 화면에서 선택할 수 있도록 확장할 예정이에요.</p>
           <div className="setting-group"><label>게임 진행</label><p>풍선 터뜨리기는 현재 60초 라운드로 플레이합니다.</p></div>
-          <div className="setting-group"><label>사운드</label><p>사운드 기능을 추가할 때 이 페이지에서 음소거와 볼륨을 설정할 수 있어요.</p></div>
+          <div className="setting-group">
+            <div className="setting-line"><label htmlFor="musicEnabled">배경음악</label>
+              <input type="checkbox" id="musicEnabled" checked={settings.musicEnabled}
+                onChange={e=>update({musicEnabled:e.target.checked})}/></div>
+            <div className="setting-line audio-slider-label">
+              <label htmlFor="musicVolume">배경음악 볼륨</label><output htmlFor="musicVolume">{settings.musicVolume}%</output>
+            </div>
+            <input id="musicVolume" className="slider" type="range" min="0" max="100" step="5"
+              disabled={!settings.musicEnabled} value={settings.musicVolume}
+              onChange={e=>update({musicVolume:Number(e.target.value)})}/>
+          </div>
+          <div className="setting-group">
+            <div className="setting-line"><label htmlFor="sfxEnabled">게임 효과음</label>
+              <input type="checkbox" id="sfxEnabled" checked={settings.sfxEnabled}
+                onChange={e=>update({sfxEnabled:e.target.checked})}/></div>
+            <div className="setting-line audio-slider-label">
+              <label htmlFor="sfxVolume">효과음 볼륨</label><output htmlFor="sfxVolume">{settings.sfxVolume}%</output>
+            </div>
+            <input id="sfxVolume" className="slider" type="range" min="0" max="100" step="5"
+              disabled={!settings.sfxEnabled} value={settings.sfxVolume}
+              onChange={e=>update({sfxVolume:Number(e.target.value)})}/>
+            <p>브라우저 자동재생 정책에 따라 게임 시작 버튼을 누른 다음 음악이 재생돼요.</p>
+          </div>
+          <div className="setting-group"><label>시각 효과 품질</label>
+            <div className="mode-options">{([
+              ["full","풍부하게"],["light","가볍게"],["off","최소"]
+            ] as const).map(([quality,label])=>
+              <button type="button" key={quality} className={settings.effectsQuality===quality?"selected":""}
+                aria-pressed={settings.effectsQuality===quality}
+                onClick={()=>update({effectsQuality:quality})}>{label}</button>)}</div>
+            <p>저사양 모바일 기기는 가볍게 모드를 추천합니다. 최소에서도 점수 안내는 유지돼요.</p>
+          </div>
           <div className="setting-group"><button type="button" className="secondary" onClick={()=>{if(window.confirm("StickTouch 설정을 기본값으로 복원할까요?")) reset();}}>모든 설정 기본값으로 복원</button></div>
         </>}
         {tab==="advanced" && <>
