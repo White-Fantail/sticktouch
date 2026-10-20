@@ -48,6 +48,36 @@ test("bottom camera inset contains portrait video and mirrored palm input stays 
   const image=coverRect(view);
   const point=mapPoint(0.2,0.5,view);
   assert.ok(Math.abs((point.x-image.x)/image.width-0.8)<1e-10);
-  assert.ok(Math.abs(basketInput([{part:"rightHand",x:point.x,y:point.y,radius:15}],view)!-0.8)<1e-10);
+  assert.ok(Math.abs(basketInput([{part:"rightHand",x:point.x,y:point.y,radius:15}],view)!-1)<1e-10);
   assert.equal(basketInput([],view),null);
+});
+
+test("basket steering uses 30%-70% camera travel for full reach, with and without mirroring",()=>{
+  for(const mirror of [true,false]){
+    const view=gameViewport("fruit-catch",800,500,1280,720,mirror);
+    const input=(cameraX:number)=>{
+      const xy=mapPoint(cameraX,0.5,view);
+      return basketInput([{part:"leftHand",...xy,radius:15}],view)!;
+    };
+    const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-9,`expected ${a} ≈ ${b}`);
+    near(input(0.5),0.5);
+    near(input(mirror?0.7:0.3),0);
+    near(input(mirror?0.3:0.7),1);
+    near(input(mirror?0.6:0.4),0.25);
+    near(input(mirror?0.4:0.6),0.75);
+    near(input(mirror?0.9:0.1),0);
+    near(input(mirror?0.1:0.9),1);
+  }
+});
+
+test("both palms still average; amplified input puts basket in legal edge positions",()=>{
+  const view=gameViewport("fruit-catch",500,400,1280,720,false);
+  const palm=(x:number)=>({part:"leftHand" as const,...mapPoint(x,0.5,view),radius:15});
+  assert.ok(Math.abs(basketInput([palm(0.2),palm(0.8)],view)!-0.5)<1e-9);
+  assert.equal(basketInput([{part:"leftHand",x:Number.NaN,y:0,radius:15}],view),null);
+  const round=createFruitRound(10);round.playing=true;
+  stepFruitRound(round,0,500,400,basketInput([palm(0.3)],view));
+  assert.equal(round.basketX,52.5);
+  stepFruitRound(round,0,500,400,basketInput([palm(0.7)],view));
+  assert.equal(round.basketX,447.5);
 });
