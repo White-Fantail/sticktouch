@@ -85,6 +85,7 @@ git fetch origin
 git merge-base --is-ancestor origin/main origin/dev
 # main의 작업 트리가 깨끗한 것을 확인한 뒤
 git switch main
+git pull --ff-only origin main
 git merge --ff-only origin/dev
 git push origin main
 ```
