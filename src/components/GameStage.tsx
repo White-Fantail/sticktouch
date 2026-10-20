@@ -141,7 +141,7 @@ export function GameStage({game}: {game: GameDefinition}) {
       setHandModelStatus(handDetector?"ready":"fallback");
       setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
       let last=performance.now(),lastPoseInference=0,lastHandInference=0,lastVideoTime=-1;
-      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0,lastSourceKey="none/none";
+      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0,lastSourceKey="none/none",lastCountdownSecond=0;
       let handInterval=160;
       const tick=(now:number)=>{
         if(token!==sessionRef.current)return;
@@ -210,7 +210,14 @@ export function GameStage({game}: {game: GameDefinition}) {
             setScore(snapshot.score);setCombo(snapshot.combo);setMaxCombo(snapshot.maxCombo);
           }
           audioRef.current.update();
-          if(now-lastHud>=130){lastHud=now;setTimeLeft(Math.ceil(g.time));}
+          if(now-lastHud>=130){
+            lastHud=now;
+            const seconds=Math.ceil(g.time);
+            setTimeLeft(seconds);
+            if(seconds<=5&&seconds>0&&seconds!==lastCountdownSecond){
+              lastCountdownSecond=seconds;audioRef.current.cue("countdown");
+            }
+          }
           if(result.finished){
             audioRef.current.stopMusic();audioRef.current.cue("finish");
             const snapshot=feelRef.current.stats;
@@ -312,7 +319,9 @@ export function GameStage({game}: {game: GameDefinition}) {
         {phase==="ready" && !detected && <div className="detection-hint">몸이 화면에 충분히 보이도록 카메라를 조정해 주세요.</div>}
         {phase==="ready" && <div className="hud game-hud">
           <span><small>SCORE</small><b>{score.toLocaleString()}</b></span>
-          <span><small>TIME</small><b>{timeLeft}s</b></span>
+          <span className={playing&&timeLeft<=10?"hud-timer urgency":"hud-timer"}>
+            <small>TIME</small><b>{timeLeft}s</b>
+          </span>
           {playing&&<span className={combo>=5?"hud-combo hot":"hud-combo"} key={"combo-"+combo}>
             <small>COMBO</small><b>{combo}×</b>
             {combo>=5&&<small>{combo>=20?"×2.0":combo>=10?"×1.5":"×1.2"} SCORE</small>}
