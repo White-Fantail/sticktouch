@@ -5,5 +5,11 @@
       "dev": false,
       "main": true
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!assets/|icon.svg|manifest.webmanifest).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
