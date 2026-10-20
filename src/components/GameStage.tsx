@@ -2,6 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { matchHandPalms } from "../hands";
 import {getHitpoints, smoothHitpoints, type Landmark, type Point, type Viewport} from "../core";
+import {type DisplayMode, type CameraSide} from "../settings/settings";
+import {useSettings} from "../settings/SettingsContext";
+import {Link} from "../app/navigation";
+import {type GameDefinition} from "../games/registry";
+import {paint} from "../engine/renderer";
+import {createBalloonRound,stepBalloonRound,type BalloonRound} from "../games/balloon-pop/game";
+
 
 type Phase = "idle" | "loading" | "ready" | "error";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";

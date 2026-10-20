@@ -51,8 +51,3 @@ export function paint(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, po
     ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill();ctx.stroke();
   }
 }
-import {type DisplayMode, type CameraSide} from "../settings/settings";
-import {useSettings} from "../settings/SettingsContext";
-import {Link} from "../app/navigation";
-import {type GameDefinition} from "../games/registry";
-
