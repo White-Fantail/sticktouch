@@ -41,7 +41,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   const [maxCombo,setMaxCombo]=useState(0);
   const [stats,setStats]=useState<GameStats|null>(null);
   const [newBest,setNewBest]=useState(false);
-  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,"v1")?.score??0);
+  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,"v1",hitbox)?.score??0);
   const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
   const [finished,setFinished]=useState(false);
   const videoRef=useRef<HTMLVideoElement>(null);
@@ -53,6 +53,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   const animationRef=useRef<number>(0);
   const sessionRef=useRef(0);
   const settingsRef=useRef({mode,rings,hitbox,side,preciseHands,effectsQuality});
+  const reducedMotionRef=useRef(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false);
   const gameRef=useRef<BalloonRound>(createBalloonRound(ROUND_SECONDS));
   const feelRef=useRef(new GameFeelSession(game.feedback.scoreProfile));
   const audioRef=useRef(new AudioManager());
@@ -201,7 +202,7 @@ export function GameStage({game}: {game: GameDefinition}) {
             for(const event of result.events){
               const feedback=feelRef.current.dispatch(event);
               if(!feedback)continue;
-              effectsRef.current.emit(feedback,s.effectsQuality);
+              effectsRef.current.emit(feedback,reducedMotionRef.current?"off":s.effectsQuality);
               audioRef.current.cue(feedback.milestone?"milestone":feedback.type);
             }
             const snapshot=feelRef.current.stats;
@@ -220,7 +221,7 @@ export function GameStage({game}: {game: GameDefinition}) {
         }
         effectsRef.current.update(dt);
         paint(ctx,video,posesRef.current,g.balls,points,v,s.mode,s.rings);
-        effectsRef.current.draw(ctx,width,height,s.effectsQuality);
+        effectsRef.current.draw(ctx,width,height,reducedMotionRef.current?"off":s.effectsQuality);
       };
       animationRef.current=requestAnimationFrame(tick);
     }catch(error){
