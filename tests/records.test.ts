@@ -13,4 +13,5 @@ test("records remain optional if localStorage is unavailable",()=>{
     successes:4,misses:0,accuracy:100,processed:4},100);
   assert.equal(saved.isNew,true);
   assert.equal(saved.record?.score,100);
+  assert.equal(getBestRecord("example","v1")?.score,100);
 });
