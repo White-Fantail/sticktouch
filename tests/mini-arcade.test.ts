@@ -44,7 +44,7 @@ test("tracking for mini games requires a palm, not only a head or foot",()=>{
 test("mole emits exactly one hit when touched and does not farm a held palm",()=>{
   const round=createMiniRound("mole-whack",10);round.playing=true;
   const p=at(MOLE_SPOTS[0]);
-  stepMiniRound(round,0.02,W,H,[p],rand); // spawn
+  stepMiniRound(round,0.02,W,H,[hand(5,5)],rand); // spawn away from the palm
   assert.equal(round.slot,0);
   const event=stepMiniRound(round,0.02,W,H,[p],rand).events;
   assert.deepEqual(event.map(e=>e.type),["hit"]);
@@ -52,6 +52,14 @@ test("mole emits exactly one hit when touched and does not farm a held palm",()=
     assert.equal(stepMiniRound(round,0.08,W,H,[p],rand).events.filter(e=>e.type==="hit").length,0);
   }
   assert.equal(round.score,0);
+});
+test("a mole appearing under a still hand requires release before hitting",()=>{
+  const round=createMiniRound("mole-whack",10);round.playing=true;
+  const p=at(MOLE_SPOTS[0]);
+  stepMiniRound(round,.02,W,H,[p],rand); // target spawns under the palm
+  assert.equal(stepMiniRound(round,.02,W,H,[p],rand).events.length,0);
+  stepMiniRound(round,.02,W,H,[hand(5,5)],rand);
+  assert.equal(stepMiniRound(round,.02,W,H,[p],rand).events[0]?.type,"hit");
 });
 test("untouched mole expires with one miss event",()=>{
   const round=createMiniRound("mole-whack",10);round.playing=true;
@@ -83,6 +91,18 @@ test("star can be collected once and times out otherwise",()=>{
   let misses=0;
   for(let i=0;i<42;i++)misses+=stepMiniRound(timeout,0.08,W,H,[hand(5,5)],rand).events.filter(e=>e.type==="miss").length;
   assert.equal(misses,1);
+});
+test("star spawning stays away from a held hand even if random returns a constant",()=>{
+  const round=createMiniRound("star-hunt",10);round.playing=true;
+  stepMiniRound(round,.02,W,H,[hand(5,5)],rand);
+  const star=round.items[0];
+  const held=at(star);
+  assert.equal(stepMiniRound(round,.02,W,H,[held],rand).events[0]?.type,"collect");
+  stepMiniRound(round,.08,W,H,[held],rand);
+  stepMiniRound(round,.08,W,H,[held],rand);
+  assert.ok(round.items[0]);
+  const next=round.items[0];
+  assert.ok(Math.hypot(held.x-next.x*W,held.y-next.y*H)>held.radius+Math.min(W,H)*.19);
 });
 test("meteor collision is damage; evaded meteor gives a single collect",()=>{
   const crash=createMiniRound("meteor-dodge",10);crash.playing=true;

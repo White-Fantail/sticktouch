@@ -35,10 +35,20 @@ function randomDifferent(previous:number,count:number,rand:()=>number){
   return (previous+1+randomIndex(count-1,rand))%count;
 }
 function spawnStar(round:MiniRound,hands:Point[],width:number,height:number,rand:()=>number){
-  let x=0.5,y=0.5;
+  let x=0.5,y=0.5,safe=false;
   for(let attempt=0;attempt<16;attempt++){
     x=0.13+rand()*0.74;y=0.26+rand()*0.5;
-    if(hands.every(p=>!touch(p,{x,y},0.19,width,height)))break;
+    if(hands.every(p=>!touch(p,{x,y},0.19,width,height))){safe=true;break;}
+  }
+  if(!safe){
+    // Even a deterministic/stuck random source must not spawn a star in a held palm.
+    const candidates=[{x:.13,y:.26},{x:.87,y:.26},{x:.13,y:.76},{x:.87,y:.76},{x:.5,y:.76}];
+    const best=candidates.reduce((a,c)=>{
+      const clearance=(s:{x:number;y:number})=>Math.min(...hands.map(p=>
+        Math.hypot(p.x-s.x*width,p.y-s.y*height)-p.radius));
+      return clearance(c)>clearance(a)?c:a;
+    },candidates[0]);
+    x=best.x;y=best.y;
   }
   const theta=rand()*Math.PI*2;
   round.items=[{id:++round.seq,x,y,vx:Math.cos(theta)*0.095,
@@ -50,8 +60,13 @@ function stepMole(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
   if(previousLock>=0&&!hands.some(p=>touch(p,MOLE_SPOTS[previousLock],0.087,width,height)))round.lockedSlot=-1;
   if(round.slot<0){
     round.wait-=dt;
-    if(round.wait<=0){round.slot=randomDifferent(round.lockedSlot,MOLE_SPOTS.length,rand);
-      round.phaseTime=0;round.seq++;}
+    if(round.wait<=0){
+      round.slot=randomDifferent(round.lockedSlot,MOLE_SPOTS.length,rand);
+      round.phaseTime=0;round.seq++;
+      // A mole appearing under a stationary hand is not an intentional tap.
+      if(hands.some(p=>touch(p,MOLE_SPOTS[round.slot],0.082,width,height)))
+        round.lockedSlot=round.slot;
+    }
     return;
   }
   round.phaseTime+=dt;
@@ -133,7 +148,7 @@ function stepDance(round:MiniRound,dt:number,hands:Point[],width:number,height:n
   const raw=prev&&prev.part===hand.part?
     Math.hypot((hand.x-prev.x)/width,(hand.y-prev.y)/height):0;
   // Ignore sub-pixel jitter and sudden tracking jumps.
-  const distance=raw<0.003||raw>0.14?0:raw;
+  const distance=raw<0.0015||raw>0.14?0:raw;
   round.lastHand=next;round.phaseTime+=dt;
   if(round.green){
     round.danceDistance+=distance;
