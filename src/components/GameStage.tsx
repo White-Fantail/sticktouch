@@ -8,6 +8,10 @@ import {Link} from "../app/navigation";
 import {type GameDefinition} from "../games/registry";
 import {paint} from "../engine/renderer";
 import {createBalloonRound,stepBalloonRound,type BalloonRound} from "../games/balloon-pop/game";
+import {GameFeelSession,type GameStats} from "../engine/game-feel";
+import {AudioManager} from "../engine/audio";
+import {EffectManager} from "../engine/effects";
+import {getBestRecord,saveBestRecord} from "../engine/records";
 
 
 type Phase = "idle" | "loading" | "ready" | "error";
@@ -19,7 +23,9 @@ const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간
 
 export function GameStage({game}: {game: GameDefinition}) {
   const {settings,update}=useSettings();
-  const {mode,rings,hitbox,side,preciseHands,diagnostics}=settings;
+  const {mode,rings,hitbox,side,preciseHands,diagnostics,
+    musicEnabled,sfxEnabled,musicVolume,sfxVolume,effectsQuality}=settings;
+  const [quickMuted,setQuickMuted]=useState(false);
   const [paused,setPaused]=useState(false);
   const [fullscreen,setFullscreen]=useState(false);
   const panelRef=useRef<HTMLDivElement>(null);
@@ -31,6 +37,11 @@ export function GameStage({game}: {game: GameDefinition}) {
   const [detected,setDetected]=useState(false);
   const [playing,setPlaying]=useState(false);
   const [score,setScore]=useState(0);
+  const [combo,setCombo]=useState(0);
+  const [maxCombo,setMaxCombo]=useState(0);
+  const [stats,setStats]=useState<GameStats|null>(null);
+  const [newBest,setNewBest]=useState(false);
+  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,"v1")?.score??0);
   const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
   const [finished,setFinished]=useState(false);
   const videoRef=useRef<HTMLVideoElement>(null);
@@ -41,13 +52,22 @@ export function GameStage({game}: {game: GameDefinition}) {
   const handTrackerRef=useRef<HandLandmarker|null>(null);
   const animationRef=useRef<number>(0);
   const sessionRef=useRef(0);
-  const settingsRef=useRef({mode,rings,hitbox,side,preciseHands});
+  const settingsRef=useRef({mode,rings,hitbox,side,preciseHands,effectsQuality});
   const gameRef=useRef<BalloonRound>(createBalloonRound(ROUND_SECONDS));
+  const feelRef=useRef(new GameFeelSession());
+  const audioRef=useRef(new AudioManager());
+  const effectsRef=useRef(new EffectManager());
   const posesRef=useRef<Landmark[]|undefined>(undefined);
   const handsRef=useRef<Landmark[][]>([]);
   const smoothRef=useRef<Point[]>([]);
   const mountedRef=useRef(true);
-  settingsRef.current={mode,rings,hitbox,side,preciseHands};
+  settingsRef.current={mode,rings,hitbox,side,preciseHands,effectsQuality};
+  useEffect(()=>{
+    audioRef.current.setPreferences({
+      musicEnabled:musicEnabled&&!quickMuted,sfxEnabled:sfxEnabled&&!quickMuted,
+      musicVolume,sfxVolume
+    });
+  },[musicEnabled,sfxEnabled,musicVolume,sfxVolume,quickMuted]);
 
   const stop = useCallback(()=>{
     sessionRef.current++;
@@ -59,6 +79,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     handTrackerRef.current?.close();handTrackerRef.current=null;
     handsRef.current=[];smoothRef.current=[];posesRef.current=undefined;
     gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];
+    feelRef.current.reset();effectsRef.current.reset();audioRef.current.destroy();
     if(mountedRef.current){setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
   },[]);
   useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
@@ -176,11 +197,30 @@ export function GameStage({game}: {game: GameDefinition}) {
         const g=gameRef.current;
         if(g.playing && !g.paused && !document.hidden){
           const result=stepBalloonRound(g,dt,width,height,points);
-          if(result.hits>0)setScore(g.score);
+          if(result.events.length){
+            for(const event of result.events){
+              const feedback=feelRef.current.dispatch(event);
+              if(!feedback)continue;
+              effectsRef.current.emit(feedback,s.effectsQuality);
+              audioRef.current.cue(feedback.milestone?"milestone":feedback.type);
+            }
+            const snapshot=feelRef.current.stats;
+            g.score=snapshot.score;
+            setScore(snapshot.score);setCombo(snapshot.combo);setMaxCombo(snapshot.maxCombo);
+          }
+          audioRef.current.update();
           if(now-lastHud>=130){lastHud=now;setTimeLeft(Math.ceil(g.time));}
-          if(result.finished){setPlaying(false);setFinished(true);setTimeLeft(0);}
+          if(result.finished){
+            audioRef.current.stopMusic();audioRef.current.cue("finish");
+            const snapshot=feelRef.current.stats;
+            const saved=saveBestRecord(game.id,"v1",snapshot,s.hitbox);
+            setStats(snapshot);setNewBest(saved.isNew);setBestScore(saved.record?.score??0);
+            setPlaying(false);setFinished(true);setTimeLeft(0);
+          }
         }
+        effectsRef.current.update(dt);
         paint(ctx,video,posesRef.current,g.balls,points,v,s.mode,s.rings);
+        effectsRef.current.draw(ctx,width,height,s.effectsQuality);
       };
       animationRef.current=requestAnimationFrame(tick);
     }catch(error){
@@ -202,11 +242,16 @@ export function GameStage({game}: {game: GameDefinition}) {
     if(phase!=="ready" || !detected)return;
     const g=gameRef.current;
     Object.assign(g,createBalloonRound(ROUND_SECONDS));
+    feelRef.current.reset();effectsRef.current.reset();
+    audioRef.current.start("pop");audioRef.current.cue("start");
     g.playing=true;setPaused(false);
-    setScore(0);setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
+    setScore(0);setCombo(0);setMaxCombo(0);setStats(null);setNewBest(false);
+    setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
   };
   const end=()=>{
     gameRef.current.playing=false;gameRef.current.paused=false;gameRef.current.balls=[];setPaused(false);
+    audioRef.current.stopMusic();effectsRef.current.reset();feelRef.current.reset();
+    setScore(0);setCombo(0);setMaxCombo(0);setStats(null);
     setPlaying(false);setFinished(false);setTimeLeft(ROUND_SECONDS);
   };
   const toggleCamera=async()=>{
@@ -216,6 +261,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     const g=gameRef.current;
     if(!g.playing)return;
     g.paused=!g.paused;setPaused(g.paused);
+    if(g.paused)audioRef.current.pause();else audioRef.current.resume();
   };
   const toggleFullscreen=async()=>{
     try{
@@ -226,7 +272,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   useEffect(()=>{
     const handleVisibility=()=>{
       if(document.hidden && gameRef.current.playing){
-        gameRef.current.paused=true;setPaused(true);
+        gameRef.current.paused=true;audioRef.current.pause();setPaused(true);
       }
     };
     const handleFullscreen=()=>setFullscreen(!!document.fullscreenElement);
@@ -239,6 +285,11 @@ export function GameStage({game}: {game: GameDefinition}) {
     <div className="play-topbar">
       <Link to="/games" className="play-exit" aria-label="게임 탐색으로 돌아가기"><span>←</span> {game.title}</Link>
       <div className="play-top-actions">
+        <button type="button" onClick={()=>setQuickMuted(value=>!value)}
+          title={quickMuted?"사운드 켜기":"사운드 잠시 끄기"}
+          aria-label={quickMuted?"사운드 켜기":"사운드 잠시 끄기"}>
+          {quickMuted?"🔇":"🔊"}
+        </button>
         <Link to="/settings" title="설정 페이지로 이동하면 카메라와 게임이 종료됩니다.">⚙ 설정</Link>
         {phase==="ready" && <button type="button" onClick={()=>void toggleCamera()} title="카메라 전환">↻ 카메라</button>}
         <button type="button" onClick={()=>void toggleFullscreen()}>{fullscreen?"⤢ 전체 화면 종료":"⛶ 전체 화면"}</button>
@@ -258,15 +309,32 @@ export function GameStage({game}: {game: GameDefinition}) {
           {phase!=="loading"&&<button className="primary large" type="button" onClick={()=>void start()}>카메라 시작하기 <span>↗</span></button>}
         </div>}
         {phase==="ready" && !detected && <div className="detection-hint">몸이 화면에 충분히 보이도록 카메라를 조정해 주세요.</div>}
-        {phase==="ready" && <div className="hud"><span><small>SCORE</small><b>{String(score).padStart(3,"0")}</b></span>
-          <span><small>TIME</small><b>{timeLeft}s</b></span></div>}
+        {phase==="ready" && <div className="hud game-hud">
+          <span><small>SCORE</small><b>{score.toLocaleString()}</b></span>
+          <span><small>TIME</small><b>{timeLeft}s</b></span>
+          {playing&&<span className={combo>=5?"hud-combo hot":"hud-combo"} key={"combo-"+combo}>
+            <small>COMBO</small><b>{combo}×</b>
+            {combo>=5&&<small>{combo>=20?"×2.0":combo>=10?"×1.5":"×1.2"} SCORE</small>}
+          </span>}
+          {!playing&&bestScore>0&&<span className="hud-best"><small>BEST</small><b>{bestScore.toLocaleString()}</b></span>}
+        </div>}
         {phase==="ready" && playing && paused && <div className="paused-overlay">
           <strong>일시정지</strong><p>준비되면 게임을 계속하세요.</p>
           <button className="primary" onClick={togglePause}>▶ 계속하기</button></div>}
-        {phase==="ready" && finished && <div className="result"><strong>게임 종료!</strong>
-          <p>최종 점수 {score}점</p>
-          <button className="primary" type="button" onClick={begin} disabled={!detected}>다시 하기 ↻</button>
-          <Link className="secondary" to="/games">다른 게임 보기 →</Link></div>}
+        {phase==="ready" && finished && <div className="result game-result">
+          <strong>🏆 게임 완료!</strong>
+          <span className="result-score">{score.toLocaleString()}</span>
+          <p>FINAL SCORE {newBest&&<b className="new-record">★ NEW PERSONAL BEST</b>}</p>
+          <div className="result-stats">
+            <span><small>최대 콤보</small><b>{stats?.maxCombo??maxCombo}×</b></span>
+            <span><small>성공 횟수</small><b>{stats?.successes??0}</b></span>
+            <span><small>명중률</small><b>{stats?.accuracy??0}%</b></span>
+          </div>
+          <div className="result-actions">
+            <button className="primary" type="button" onClick={begin} disabled={!detected}>↻ 다시 하기</button>
+            <Link className="secondary" to="/games">다른 게임 보기 →</Link>
+          </div>
+        </div>}
       </div>
       <div className="play-stage-bottom">
         <span>{phase==="ready"?(detected?"손·발·머리의 터치 영역으로 풍선을 터뜨려요":"몸 전체가 보이도록 한 걸음 물러서세요"):message}</span>
