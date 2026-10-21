@@ -153,58 +153,53 @@ function stepShield(round:AdvancedRound,dt:number,points:Point[],w:number,h:numb
   round.bolts=remaining;
 }
 function beginMemorySequence(round:AdvancedRound,rand:()=>number,extend:boolean){
-  if(!extend){round.sequence=[choose(4,rand),choose(4,rand)];}
-  else round.sequence.push(choose(4,rand));
+  if(!extend)round.sequence=[choose(POSE_SEQUENCE.length,rand),choose(POSE_SEQUENCE.length,rand)];
+  else round.sequence.push(choose(POSE_SEQUENCE.length,rand));
   round.memoryPhase="watch";round.phaseTime=0;round.memoryIndex=0;
-  round.memoryLit=-1;round.memoryCorrect=false;
+  round.memoryLit=-1;round.memoryCorrect=false;round.poseHold=0;round.poseArmed=true;
 }
-function stepMemory(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
-  rand:()=>number,events:GameEvent[]){
-  const pressed=padPresses(round,hands,MEMORY_SPOTS,.095,w,h);
+function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undefined,
+  w:number,h:number,rand:()=>number,events:GameEvent[]){
+  if(!pose)return;
   if(!round.sequence.length)beginMemorySequence(round,rand,false);
   round.phaseTime+=dt;
   if(round.memoryPhase==="watch"){
-    // Delay before showing the first flash; keep input inactive during the reveal.
-    const t=round.phaseTime-.42;
-    const idx=Math.floor(t/.70);
-    round.memoryLit=t>=0&&idx<round.sequence.length&&t% .70<.43
+    const t=round.phaseTime-.4,idx=Math.floor(t/.74);
+    round.memoryLit=t>=0&&idx<round.sequence.length&&t%.74<.55
       ?round.sequence[idx]:-1;
-    if(round.phaseTime>=.42+round.sequence.length*.70){
+    if(round.phaseTime>=.4+round.sequence.length*.74){
       round.memoryPhase="input";round.phaseTime=0;round.memoryLit=-1;
+      round.poseArmed=true;round.poseHold=0;
     }
     return;
   }
   if(round.memoryPhase==="rest"){
-    if(round.phaseTime>=.85){
-      const extend=round.memoryCorrect&&round.sequence.length<7;
-      beginMemorySequence(round,rand,extend);
-    }
+    if(round.phaseTime>=.65)
+      beginMemorySequence(round,rand,round.memoryCorrect&&round.sequence.length<6);
     return;
   }
-  if(pressed.length){
-    const {part,pad}=pressed[0];
-    const correct=round.sequence[round.memoryIndex]===pad;
+  const expected=POSE_SEQUENCE[round.sequence[round.memoryIndex]];
+  const matched=matchesPose(pose,expected.id);
+  if(matched===null)return;
+  if(!matched){round.poseArmed=true;round.poseHold=0;}
+  else if(round.poseArmed)round.poseHold+=dt;
+  if(matched&&round.poseArmed&&round.poseHold>=.40){
     const id=++round.seq;
-    events.push({id:"memory:tap:"+id,type:correct?"good":"miss",
-      targetId:"memory:"+id,basePoints:15,
-      position:position(MEMORY_SPOTS[pad].x,MEMORY_SPOTS[pad].y,w,h),
-      color:correct?"#a2f4cd":"#ff9599",bodyPart:part});
-    round.memoryLit=pad;
-    round.phaseTime=0;
-    if(!correct){
-      round.memoryCorrect=false;round.memoryPhase="rest";return;
-    }
-    round.memoryIndex++;
+    events.push({id:"memory:pose:"+id,type:"good",
+      targetId:"memory:"+id,basePoints:18,
+      position:position(.5,.48,w,h),color:"#a2f4cd",bodyPart:"body"});
+    round.memoryLit=round.sequence[round.memoryIndex];round.phaseTime=0;
+    round.memoryIndex++;round.poseHold=0;round.poseArmed=false;
     if(round.memoryIndex===round.sequence.length){
-      events.push({id:"memory:complete:"+id,type:"bonus",basePoints:round.sequence.length*10,
-        position:position(.5,.53,w,h),color:"#ffe88c"});
+      events.push({id:"memory:complete:"+id,type:"bonus",
+        basePoints:round.sequence.length*12,position:position(.5,.48,w,h),color:"#ffe88c"});
       round.memoryCorrect=true;round.memoryPhase="rest";
     }
-  }else if(round.phaseTime>=5.5){
+  }else if(round.phaseTime>=5.2){
     events.push({id:"memory:timeout:"+ ++round.seq,type:"miss",
-      position:position(.5,.53,w,h)});
+      position:position(.5,.48,w,h)});
     round.memoryCorrect=false;round.memoryPhase="rest";round.phaseTime=0;
-  }else if(round.phaseTime>.23){
+  }else if(round.phaseTime>.30){
     round.memoryLit=-1;
   }
 }
@@ -292,7 +287,7 @@ export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:nu
   switch(round.kind){
     case "rhythm-pads":stepBeats(round,simDt,hands,w,h,rand,events);break;
     case "shield-guard":stepShield(round,simDt,points,w,h,rand,events,pose,view);break;
-    case "memory-sequence":stepMemory(round,simDt,hands,w,h,rand,events);break;
+    case "memory-sequence":stepMemory(round,simDt,pose,w,h,rand,events);break;
     case "laser-lane":stepLaser(round,simDt,hands,w,h,rand,events);break;
     case "parcel-sort":stepParcel(round,simDt,hands,w,h,rand,events);break;
   }
