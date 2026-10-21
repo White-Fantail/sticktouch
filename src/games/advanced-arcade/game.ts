@@ -26,7 +26,7 @@ export type AdvancedRound={
   notes:Note[];bolts:Bolt[];
   sequence:number[];memoryPhase:MemoryPhase;memoryIndex:number;memoryLit:number;memoryCorrect:boolean;
   previousPads:Record<string,number>;
-  poseHold:number;poseArmed:boolean;shieldArms:{x:number;y:number;angle:number}[];
+  poseHold:number;wrongHold:number;poseArmed:boolean;shieldArms:{x:number;y:number;angle:number}[];
   laser:Laser|null;parcel:Parcel|null;
 };
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
@@ -42,7 +42,7 @@ export function createAdvancedRound(kind:AdvancedGameId,seconds=ROUND_DURATION_S
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
     memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
-    previousPads:{},poseHold:0,poseArmed:true,shieldArms:[],laser:null,parcel:null};
+    previousPads:{},poseHold:0,wrongHold:0,poseArmed:true,shieldArms:[],laser:null,parcel:null};
 }
 /** A press is entering a pad, not holding a palm over it across frames.
  * Maintain the same history during preview and cooldown as during input. */
@@ -156,7 +156,7 @@ function beginMemorySequence(round:AdvancedRound,rand:()=>number,extend:boolean)
   if(!extend)round.sequence=[choose(POSE_SEQUENCE.length,rand),choose(POSE_SEQUENCE.length,rand)];
   else round.sequence.push(choose(POSE_SEQUENCE.length,rand));
   round.memoryPhase="watch";round.phaseTime=0;round.memoryIndex=0;
-  round.memoryLit=-1;round.memoryCorrect=false;round.poseHold=0;round.poseArmed=true;
+  round.memoryLit=-1;round.memoryCorrect=false;round.poseHold=0;round.wrongHold=0;round.poseArmed=true;
 }
 function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undefined,
   w:number,h:number,rand:()=>number,events:GameEvent[]){
@@ -169,7 +169,7 @@ function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undef
       ?round.sequence[idx]:-1;
     if(round.phaseTime>=.4+round.sequence.length*.74){
       round.memoryPhase="input";round.phaseTime=0;round.memoryLit=-1;
-      round.poseArmed=true;round.poseHold=0;
+      round.poseArmed=true;round.poseHold=0;round.wrongHold=0;
     }
     return;
   }
@@ -181,8 +181,18 @@ function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undef
   const expected=POSE_SEQUENCE[round.sequence[round.memoryIndex]];
   const matched=matchesPose(pose,expected.id);
   if(matched===null)return;
-  if(!matched){round.poseArmed=true;round.poseHold=0;}
-  else if(round.poseArmed)round.poseHold+=dt;
+  if(!matched){
+    round.poseArmed=true;round.poseHold=0;
+    const wrong=POSE_SEQUENCE.some((candidate,i)=>
+      i!==round.sequence[round.memoryIndex]&&matchesPose(pose,candidate.id)===true);
+    round.wrongHold=wrong?round.wrongHold+dt:0;
+    if(round.wrongHold>=.4){
+      events.push({id:"memory:wrong:"+ ++round.seq,type:"miss",
+        position:position(.5,.48,w,h),color:"#ff9599"});
+      round.memoryCorrect=false;round.memoryPhase="rest";round.phaseTime=0;
+      round.wrongHold=0;return;
+    }
+  }else{round.wrongHold=0;if(round.poseArmed)round.poseHold+=dt;}
   if(matched&&round.poseArmed&&round.poseHold>=.40){
     const id=++round.seq;
     events.push({id:"memory:pose:"+id,type:"good",
