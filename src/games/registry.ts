@@ -1,7 +1,8 @@
 import type {GameFeelProfile} from "../engine/game-feel";
 import type {RoundDuration} from "../engine/round-tempo";
 import type {MusicTheme} from "../engine/audio";
-export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics";
+import {CREATIVE_CATALOG} from "./creative-arcade/catalog";
+export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics" | "creative";
 export type GameStatus = "available" | "coming-soon";
 export interface GameDefinition {
   id: string;
@@ -145,6 +146,7 @@ export const GAMES: readonly GameDefinition[] = [
    description:"손을 움직이며 인력과 척력을 가해 행성들을 중력 포털로 유도하세요.",
    category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
    artwork:"star",emoji:"🪐",feedback:{musicTheme:"rhythm"}},
+  ...CREATIVE_CATALOG,
   {id:"intruder-alarm",title:"침입자 경보",tagline:"발로 누르고 손으로 잠금 해제!",
    description:"지정된 발로 바닥 압력판을 유지하면서 반대쪽 손으로 잠금장치를 해제하세요.",category:"move",status:"available",recommendedSeconds:60,
    bodyParts:"손 · 발",artwork:"pose",emoji:"🚨",feedback:{musicTheme:"pop"}}
@@ -153,5 +155,5 @@ export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);
 }
 export const CATEGORY_LABELS: Record<GameCategory, string> = {
-  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기", physics:"스포츠·물리"
+  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기", physics:"스포츠·물리", creative:"음악·창작·표현"
 };
