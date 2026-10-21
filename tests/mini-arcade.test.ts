@@ -34,11 +34,15 @@ test("new game clocks are frozen when idle, paused, or hands disappear",()=>{
     assert.equal(round.score,0,kind+" never scores locally");
   }
 });
-test("tracking for mini games requires a palm, not only a head or foot",()=>{
-  for(const kind of MINI_GAME_IDS){
+test("simple mini games require hands while full-body games require reliable joints",()=>{
+  for(const kind of ["mole-whack","color-match","star-hunt"] as const){
     const round=createGameRound(kind);
     assert.equal(gameTracking(round,[{part:"head",x:300,y:200,radius:20}],undefined),false);
     assert.equal(gameTracking(round,[hand(300,200)],undefined),true);
+  }
+  for(const kind of ["meteor-dodge","freeze-dance"] as const){
+    const round=createGameRound(kind);
+    assert.equal(gameTracking(round,[hand(300,200)],undefined),false);
   }
 });
 test("mole emits exactly one hit when touched and does not farm a held palm",()=>{
@@ -104,32 +108,34 @@ test("star spawning stays away from a held hand even if random returns a constan
   const next=round.items[0];
   assert.ok(Math.hypot(held.x-next.x*W,held.y-next.y*H)>held.radius+Math.min(W,H)*.19);
 });
-test("meteor collision is damage; evaded meteor gives a single collect",()=>{
-  const crash=createMiniRound("meteor-dodge",10);crash.playing=true;
-  crash.items=[{id:1,x:.5,y:.5,vx:.25,vy:0,radius:.05,age:0}];
-  const hit=stepMiniRound(crash,.01,W,H,[hand(W*.5,H*.5)],rand);
-  assert.equal(hit.events[0]?.type,"damage");
-  assert.equal(crash.items.length,0);
-  const dodge=createMiniRound("meteor-dodge",10);dodge.playing=true;
-  dodge.items=[{id:2,x:1.13,y:.5,vx:.25,vy:0,radius:.05,age:0}];
-  const evaded=stepMiniRound(dodge,.08,W,H,[hand(1,1)],rand);
-  assert.deepEqual(evaded.events.map(e=>e.type),["collect"]);
-  assert.equal(stepMiniRound(dodge,.02,W,H,[hand(1,1)],rand).events.filter(e=>e.type==="collect").length,0);
+test("meteor shower distinguishes punches, double-hand attacks and body impacts",()=>{
+  const r=createMiniRound("meteor-dodge",10);r.playing=true;
+  r.items=[{id:1,x:.5,y:.5,vx:0,vy:0,radius:.05,age:0}];
+  assert.deepEqual(stepMiniRound(r,.02,W,H,[hand(.5*W,.5*H)],rand).events.map(e=>e.type),["hit"]);
+  r.items=[{id:2,x:.5,y:.5,vx:0,vy:0,radius:.086,age:0,large:true}];
+  assert.equal(stepMiniRound(r,.02,W,H,[hand(.5*W,.5*H)],rand).events.length,0);
+  const left:Point={part:"leftHand",x:.445*W,y:.5*H,radius:12};
+  const right:Point={part:"rightHand",x:.555*W,y:.5*H,radius:12};
+  assert.deepEqual(stepMiniRound(r,.02,W,H,[left,right],rand).events.map(e=>e.type),["perfect"]);
+  r.items=[{id:3,x:.5,y:.5,vx:0,vy:0,radius:.05,age:0}];
+  const head:Point={part:"head",x:.5*W,y:.5*H,radius:12};
+  assert.deepEqual(stepMiniRound(r,.02,W,H,[head,hand(3,3)],rand).events.map(e=>e.type),["damage"]);
+  r.items=[{id:4,x:1.16,y:.5,vx:.25,vy:0,radius:.05,age:0}];
+  assert.deepEqual(stepMiniRound(r,.08,W,H,[hand(3,3)],rand).events.map(e=>e.type),["collect"]);
 });
-test("freeze dance rewards green motion but penalizes excess red motion once",()=>{
+test("Freeze Beat awards dance motion and penalizes moving on the STOP beats once",()=>{
   const round=createMiniRound("freeze-dance",12);round.playing=true;
-  const green: string[]=[];
+  const green:string[]=[];
   for(const x of [.12,.17,.22,.27,.32,.37]){
     green.push(...stepMiniRound(round,.08,W,H,[hand(x*W,H*.5)],rand).events.map(e=>e.type));
   }
   assert.ok(green.includes("collect"));
-  for(let i=0;i<47;i++)stepMiniRound(round,.08,W,H,[hand(.37*W,H*.5)],rand);
+  for(let i=0;i<25;i++)stepMiniRound(round,.08,W,H,[hand(.37*W,H*.5)],rand);
   assert.equal(round.green,false);
-  const redEvents:string[]=[];
-  for(const x of [.37,.43,.49,.55,.61,.67]){
-    redEvents.push(...stepMiniRound(round,.08,W,H,[hand(x*W,H*.5)],rand).events.map(e=>e.type));
-  }
-  assert.equal(redEvents.filter(type=>type==="damage").length,1);
+  const red:string[]=[];
+  for(const x of [.37,.43,.49,.55,.61,.67])
+    red.push(...stepMiniRound(round,.08,W,H,[hand(x*W,H*.5)],rand).events.map(e=>e.type));
+  assert.equal(red.filter(type=>type==="damage").length,1);
 });
 test("a finished round produces a one-time finish signal",()=>{
   for(const kind of MINI_GAME_IDS){
