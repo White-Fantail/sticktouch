@@ -11,6 +11,7 @@ type Circle={x:number;y:number;radius:number};
 type Entry={inside:boolean;armed:boolean;outside:{x:number;y:number}|null};
 export class TouchEntries {
   private entries=new Map<string,Entry>();
+  reset():void{this.entries.clear();}
   enter(key:string,point:Point|undefined,target:Circle,width:number,height:number):boolean{
     if(!point||![point.x,point.y,point.radius,target.x,target.y,target.radius,width,height]
       .every(Number.isFinite)||width<=0||height<=0){
