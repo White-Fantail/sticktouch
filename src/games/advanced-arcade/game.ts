@@ -203,33 +203,56 @@ function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undef
     round.memoryLit=-1;
   }
 }
-function stepLaser(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
-  rand:()=>number,events:GameEvent[]){
+/** Beam collision is measured against the head and all tracked skeleton
+ * segments, never just the hand targets. Coordinates use the camera viewport
+ * so crop and mirroring behave exactly as they do for stickman rendering. */
+export function laserHitsPose(laser:Laser,pose:readonly Landmark[]|undefined,
+  view:Viewport|undefined):boolean{
+  if(!pose||!view)return false;
+  const mapped=new Map<number,{x:number;y:number}>();
+  for(const idx of [0,11,12,13,14,15,16,23,24,25,26,27,28,31,32]){
+    const p=pose[idx];
+    if(p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&
+      (p.visibility??1)>=.50&&(p.presence??1)>=.50)
+      mapped.set(idx,mapPoint(p.x,p.y,view));
+  }
+  const w=view.width,h=view.height,s=Math.min(w,h);
+  const high=laser.mode==="high",beam=high?h*.35:w*laser.gap;
+  const collide=(p:{x:number;y:number})=>
+    high?Math.abs(p.y-beam)<s*.026:Math.abs(p.x-beam)<s*.026;
+  if([...mapped.values()].some(collide))return true;
+  for(const [from,to] of BONES){
+    const a=mapped.get(from),b=mapped.get(to);
+    if(!a||!b)continue;
+    for(let i=1;i<8;i++){
+      const t=i/8;
+      if(collide({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t}))return true;
+    }
+  }
+  return false;
+}
+function stepLaser(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undefined,
+  w:number,h:number,rand:()=>number,events:GameEvent[],view?:Viewport){
   if(!round.laser){
     round.wait-=dt;
-    if(round.wait<=0)round.laser={id:++round.seq,gap:.24+rand()*.52,age:0,damaged:false};
+    if(round.wait<=0){
+      const mode=choose(3,rand)===0?"high":"side";
+      round.laser={id:++round.seq,mode,gap:rand()<.5?.44:.56,age:0,damaged:false};
+    }
     return;
   }
   const laser=round.laser;laser.age+=dt;
-  const active=laser.age>=.80;
-  const progress=(laser.age-.80)/2.35;
-  if(active&&progress<=1){
-    const y=.16+progress*.69;
-    const halfGap=.155;
-    const struck=hands.some(p=>Math.abs(p.y-y*h)<=p.radius+Math.min(w,h)*.020
-      &&(p.x-p.radius<(laser.gap-halfGap)*w||
-         p.x+p.radius>(laser.gap+halfGap)*w));
-    if(struck&&!laser.damaged){
-      laser.damaged=true;
-      events.push({id:"laser:hit:"+laser.id,type:"damage",targetId:"laser:"+laser.id,
-        position:position(laser.gap,y,w,h),color:"#ff7f8d"});
-    }
+  if(laser.age>=.8&&laser.age<2.55&&!laser.damaged&&laserHitsPose(laser,pose,view)){
+    laser.damaged=true;
+    events.push({id:"laser:hit:"+laser.id,type:"damage",targetId:"laser:"+laser.id,
+      position:position(laser.mode==="high"?.5:laser.gap,
+        laser.mode==="high"?.35:.5,w,h),color:"#ff7f8d"});
   }
-  if(laser.age>=3.15){
+  if(laser.age>=2.6){
     if(!laser.damaged)events.push({id:"laser:clear:"+laser.id,type:"collect",
-      targetId:"laser:"+laser.id,basePoints:25,
-      position:position(laser.gap,.85,w,h),color:"#9ff9d2"});
-    round.laser=null;round.wait=.34;
+      targetId:"laser:"+laser.id,basePoints:30,
+      position:position(.5,.5,w,h),color:"#9ff9d2"});
+    round.laser=null;round.wait=.25;
   }
 }
 function spawnParcel(round:AdvancedRound,rand:()=>number){
@@ -275,20 +298,25 @@ function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:numbe
 /** Gameplay is deterministic for injected randomness and reports only platform events.
  * Timer, simulation, and misses freeze whenever hand tracking disappears. */
 export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:number,points:Point[],
-  rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]}{
+  rand:()=>number=Math.random,speed=1,pose?:readonly Landmark[],view?:Viewport
+):{finished:boolean;events:GameEvent[]}{
   if(!round.playing||round.paused)return {finished:false,events:[]};
   const hands=handsOnly(points);
-  if(!hands.length||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h))
+  const bodyGame=round.kind==="laser-lane"||round.kind==="memory-sequence"||round.kind==="shield-guard";
+  const inputOK=round.kind==="rhythm-pads"?points.some(p=>BEAT_PARTS.includes(p.part)):
+    bodyGame?!!pose&&!!view&&!!pose[0]&&!!pose[11]&&!!pose[12]&&!!pose[23]&&!!pose[24]:
+    hands.length>0;
+  if(!inputOK||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h))
     return {finished:false,events:[]};
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   round.time=Math.max(0,round.time-dt);
   const events:GameEvent[]=[];
   const simDt=dt*speed;
   switch(round.kind){
-    case "rhythm-pads":stepBeats(round,simDt,hands,w,h,rand,events);break;
+    case "rhythm-pads":stepBeats(round,simDt,points,w,h,rand,events);break;
     case "shield-guard":stepShield(round,simDt,points,w,h,rand,events,pose,view);break;
     case "memory-sequence":stepMemory(round,simDt,pose,w,h,rand,events);break;
-    case "laser-lane":stepLaser(round,simDt,hands,w,h,rand,events);break;
+    case "laser-lane":stepLaser(round,simDt,pose,w,h,rand,events,view);break;
     case "parcel-sort":stepParcel(round,simDt,hands,w,h,rand,events);break;
   }
   if(round.time<=0)round.playing=false;
