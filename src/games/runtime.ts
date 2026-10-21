@@ -7,6 +7,7 @@ import {createPoseRound,matchesPose,poseTarget,stepPoseRound,type PoseRound} fro
 import {createMiniRound,stepMiniRound,type MiniGameId,type MiniRound} from "./mini-arcade/game.ts";
 import {createAdvancedRound,stepAdvancedRound,type AdvancedGameId,type AdvancedRound} from "./advanced-arcade/game.ts";
 import {createExpertRound,stepExpertRound,TRACE_PARTS,type ExpertGameId,type ExpertRound} from "./expert-arcade/game.ts";
+import {createBodyRound,stepBodyRound,type BodyGameId,type BodyRound} from "./body-arcade/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
@@ -14,7 +15,8 @@ export type GameRound =
   | {kind:"pose-challenge";state:PoseRound}
   | {kind:MiniGameId;state:MiniRound}
   | {kind:AdvancedGameId;state:AdvancedRound}
-  | {kind:ExpertGameId;state:ExpertRound};
+  | {kind:ExpertGameId;state:ExpertRound}
+  | {kind:BodyGameId;state:BodyRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
 export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS as RoundDuration):GameRound {
@@ -27,6 +29,10 @@ export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_S
       return {kind:id,state:createAdvancedRound(id,seconds)};
     case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
       return {kind:id,state:createExpertRound(id,seconds)};
+    case "bomb-defusal":case "human-tetris":case "left-right-brain":case "ninja-training":
+    case "volcano-escape":case "trick-teacher":case "do-opposite":case "weird-yoga":
+    case "balance-tower":case "perfect-symmetry":case "intruder-alarm":
+      return {kind:id,state:createBodyRound(id,seconds)};
     default:return {kind:"balloon-pop",state:createBalloonRound(seconds)};
   }
 }
@@ -66,6 +72,13 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
     case "laser-lane":return body&&hand;
     case "gravity-lab":case "shadow-sync":case "dual-portals":
       return points.some(p=>p.part==="leftHand")&&points.some(p=>p.part==="rightHand");
+    case "bomb-defusal":case "intruder-alarm":
+      return body&&points.some(p=>p.part==="leftHand")&&points.some(p=>p.part==="rightHand")&&
+        points.some(p=>p.part==="leftFoot")&&points.some(p=>p.part==="rightFoot");
+    case "human-tetris":case "left-right-brain":case "ninja-training":
+    case "volcano-escape":case "trick-teacher":case "do-opposite":
+    case "weird-yoga":case "balance-tower":case "perfect-symmetry":
+      return body&&points.some(p=>p.part==="leftHand")&&points.some(p=>p.part==="rightHand");
     case "constellation-trace":{
       const part=TRACE_PARTS[round.state.trace.pattern][round.state.trace.index];
       return body&&points.some(p=>p.part===part);
@@ -86,6 +99,10 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
       return stepAdvancedRound(round.state,dt,width,height,points,Math.random,speed,pose,view);
     case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
       return stepExpertRound(round.state,dt,width,height,points,undefined,speed);
+    case "bomb-defusal":case "human-tetris":case "left-right-brain":case "ninja-training":
+    case "volcano-escape":case "trick-teacher":case "do-opposite":case "weird-yoga":
+    case "balance-tower":case "perfect-symmetry":case "intruder-alarm":
+      return stepBodyRound(round.state,dt,width,height,points,pose,view,speed);
   }
 }
 export function gameHint(id:string){
@@ -107,6 +124,17 @@ export function gameHint(id:string){
     case "shadow-sync":return "그림자를 본 뒤 두 손을 각 목표 밖에서 안으로 이동하고 잠시 유지하세요.";
     case "constellation-trace":return "표시된 손·발·머리를 별 밖에서 안으로 움직여 연결하세요. 이미 겹치면 밖으로 뺐다 다시 터치!";
     case "dual-portals":return "양손을 각각 포털 밖에서 안으로 움직여 동시에 잠시 유지하세요.";
+    case "bomb-defusal":return "화면에 지정된 왼손·오른손·왼발·오른발 스위치를 순서대로 밖에서 안으로 터치해요.";
+    case "human-tetris":return "다가오는 벽의 전신 자세를 보고 먼저 다른 자세를 만든 뒤 0.4초 유지하세요.";
+    case "left-right-brain":return "두 손에 서로 다른 지시가 나옵니다. 팔을 움직여 두 조건을 동시에 충족하세요.";
+    case "ninja-training":return "첫 2초 동안 지정된 손으로 표창을 치고, 다음에는 몸을 숙이거나 좌우로 기울여 공격을 피하세요.";
+    case "volcano-escape":return "용암이 오면 실제로 두 발을 들어 점프하고, 화산재가 오면 무릎을 굽혀 앉으세요.";
+    case "trick-teacher":return "초록 표시에서는 지시를 따라하고, 빨간 속임수에서는 양손을 허리에 올려요.";
+    case "do-opposite":return "화면에 손을 올리라고 하면 내리고, 내리라고 하면 올려요. 원래 자세에서 벗어났다가 맞추세요.";
+    case "weird-yoga":return "나무·전사·의자·비틀기 자세를 몸으로 만들고 안정적으로 1초 이상 유지해요.";
+    case "balance-tower":return "상체를 왼쪽·오른쪽·중앙 목표로 천천히 이동해 1초 동안 균형을 유지하세요.";
+    case "perfect-symmetry":return "양팔의 높이와 좌우 벌림을 거울처럼 맞춰 0.9초 이상 유지해요.";
+    case "intruder-alarm":return "지정된 발을 바닥 압력판 밖에서 안으로 이동한 뒤 발을 떼지 않고 반대편 손으로 잠금장치를 터치해요.";
     default:return "주황=왼손, 파랑=발, 보라=머리, 초록=오른손! 부위를 버블 밖에서 안으로 움직여 터뜨려요.";
   }
 }

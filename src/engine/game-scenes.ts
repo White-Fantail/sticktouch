@@ -8,6 +8,7 @@ import type {GameRound} from "../games/runtime";
 import {paintMiniScene} from "../games/mini-arcade/scene";
 import {paintAdvancedScene} from "../games/advanced-arcade/scene";
 import {paintExpertScene} from "../games/expert-arcade/scene";
+import {paintBodyScene} from "../games/body-arcade/scene";
 
 export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,
   pose:Landmark[]|undefined,points:Point[],view:Viewport,round:GameRound,
@@ -30,6 +31,11 @@ export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoEleme
     case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
       paint(ctx,video,pose,[],points,view,mode,rings);
       paintExpertScene(ctx,round.state,width,height);return;
+    case "bomb-defusal":case "human-tetris":case "left-right-brain":case "ninja-training":
+    case "volcano-escape":case "trick-teacher":case "do-opposite":case "weird-yoga":
+    case "balance-tower":case "perfect-symmetry":case "intruder-alarm":
+      paint(ctx,video,pose,[],points,view,mode,rings);
+      paintBodyScene(ctx,round.state,width,height);return;
   }
 }
 function paintBubbleLegend(ctx:CanvasRenderingContext2D,w:number,h:number){
