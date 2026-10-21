@@ -31,25 +31,37 @@ test("unreliable joints stop pose timer and do not count as a failure",()=>{
   assert.equal(g.tracking,false);assert.equal(g.time,10);
   assert.equal(result.events.length,0);assert.equal(matchesPose(a,"arms-up"),null);
 });
-test("pose needs sustained correct posture and emits one perfect event",()=>{
+test("Dance Mirror scores a sustained pose but keeps the same move until the beat ends",()=>{
   const g=createPoseRound(10);g.playing=true;
   const a=player();
-  for(let i=0;i<9;i++)stepPoseRound(g,.08,a,640,480);
-  assert.equal(g.step,0);assert.ok(g.hold<POSE_HOLD_SECONDS);
-  const event=stepPoseRound(g,.08,a,640,480);
-  assert.equal(event.events.length,0);
-  assert.equal(stepPoseRound(g,.08,a,640,480).events[0]?.type,"perfect");
-  assert.equal(g.score,0);
+  for(let i=0;i<3;i++)assert.equal(stepPoseRound(g,.08,a,640,480).events.length,0);
+  const hit=stepPoseRound(g,.08,a,640,480);
+  assert.equal(hit.events[0]?.type,"perfect");
+  assert.equal(g.step,0,"pose must remain on screen until the next musical beat");
+  for(let i=0;i<13;i++)assert.equal(stepPoseRound(g,.08,a,640,480).events.length,0);
+  assert.equal(g.step,0);
+  stepPoseRound(g,.08,a,640,480);
   assert.equal(g.step,1);
   assert.equal(poseTarget(g).id,"t-pose");
+  assert.equal(g.score,0);
 });
-test("an unmatched pose times out once and moves to next goal",()=>{
+test("Dance Mirror advances on every beat even if the dancer misses",()=>{
   const g=createPoseRound(20);g.playing=true;
-  const a=player();a[15].y=.6;a[16].y=.6;
+  const a=player();a[15].y=.60;a[16].y=.60;
   const events=[];
-  for(let i=0;i<102;i++)events.push(...stepPoseRound(g,.08,a,640,480).events);
+  for(let i=0;i<18;i++)events.push(...stepPoseRound(g,.08,a,640,480).events);
   assert.deepEqual(events.map(e=>e.type),["miss"]);
   assert.equal(g.step,1);
+});
+test("Dance Mirror includes a crouch move that requires knees",()=>{
+  const a=player();
+  a[15]={x:.4,y:.58,visibility:1};
+  a[16]={x:.6,y:.58,visibility:1};
+  a[25]={x:.4,y:.76,visibility:1};
+  a[26]={x:.6,y:.76,visibility:1};
+  assert.equal(matchesPose(a,"squat"),true);
+  a[25].visibility=0;
+  assert.equal(matchesPose(a,"squat"),null);
 });
 test("registered mini games are all playable and use distinct input rules",()=>{
   for(const id of ["balloon-pop","fruit-catch","pose-challenge",
