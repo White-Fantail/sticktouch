@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createBalloonRound,stepBalloonRound} from "../src/games/balloon-pop/game.ts";
+import {ROUND_DURATION_SECONDS} from "../src/engine/round-tempo.ts";
 
 test("balloon rounds start idle with a clear score",()=>{
  const g=createBalloonRound();
- assert.equal(g.time,60);assert.equal(g.score,0);
+ assert.equal(g.time,ROUND_DURATION_SECONDS);assert.equal(g.score,0);
  assert.equal(g.playing,false);assert.deepEqual(g.balls,[]);
 });
 test("balloon rounds do not advance unless playing and unpaused",()=>{

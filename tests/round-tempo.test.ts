@@ -59,5 +59,6 @@ test("last ten seconds increase simulation rate but not the game clock",()=>{
   stepGameRound(rush,.08,800,500,[hand],undefined,view);
   assert.ok(Math.abs(normal.state.time-10.92)<1e-9);
   assert.ok(Math.abs(rush.state.time-8.92)<1e-9);
+  if(normal.kind!=="balloon-pop"||rush.kind!=="balloon-pop")throw Error("unexpected game type");
   assert.ok(rush.state.spawning>normal.state.spawning);
 });
