@@ -1,5 +1,7 @@
 /** One shared 30-second arcade clock; simulation tempo is independent of wall time. */
 export const ROUND_DURATION_SECONDS=30;
+/** Keep 30s records independent from earlier 60s personal bests. */
+export const ARCADE_RULESET_VERSION="v2-30s-rush";
 export const FINAL_RUSH_SECONDS=10;
 export const FINAL_RUSH_SPEED=1.25;
 export const COUNT_IN_SECONDS=3;

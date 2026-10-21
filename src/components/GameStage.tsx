@@ -16,7 +16,7 @@ import {AudioManager} from "../engine/audio";
 import {EffectManager} from "../engine/effects";
 import {getBestRecord,saveBestRecord} from "../engine/records";
 import {createStartGesture,resetStartGesture,stepStartGesture} from "../engine/start-gesture";
-import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS} from "../engine/round-tempo";
+import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS,ARCADE_RULESET_VERSION} from "../engine/round-tempo";
 
 
 type Phase = "idle" | "loading" | "ready" | "error";
@@ -49,9 +49,9 @@ export function GameStage({game}: {game: GameDefinition}) {
   const [maxCombo,setMaxCombo]=useState(0);
   const [stats,setStats]=useState<GameStats|null>(null);
   const [newBest,setNewBest]=useState(false);
-  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,"v1",hitbox)?.score??0);
+  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,ARCADE_RULESET_VERSION,hitbox)?.score??0);
   useEffect(()=>{
-    setBestScore(getBestRecord(game.id,"v1",hitbox)?.score??0);
+    setBestScore(getBestRecord(game.id,ARCADE_RULESET_VERSION,hitbox)?.score??0);
   },[game.id,hitbox]);
   const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
   const [finished,setFinished]=useState(false);
@@ -268,7 +268,7 @@ export function GameStage({game}: {game: GameDefinition}) {
             resetStartGesture(gestureRef.current,true);
             audioRef.current.stopMusic();audioRef.current.cue("finish");
             const snapshot=feelRef.current.stats;
-            const saved=saveBestRecord(game.id,"v1",snapshot,s.hitbox);
+            const saved=saveBestRecord(game.id,ARCADE_RULESET_VERSION,snapshot,s.hitbox);
             setStats(snapshot);setNewBest(saved.isNew);setBestScore(saved.record?.score??0);
             setPlaying(false);setFinished(true);setTimeLeft(0);
           }
