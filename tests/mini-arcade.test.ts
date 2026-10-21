@@ -75,10 +75,12 @@ test("untouched mole expires with one miss event",()=>{
 test("color matching distinguishes correct and incorrect pads, with one decision per target",()=>{
   const correct=createMiniRound("color-match",10);correct.playing=true;
   const selected=at(COLOR_SPOTS[0]);
+  stepMiniRound(correct,0.02,W,H,[hand(5,5)],rand);
   const hit=stepMiniRound(correct,0.02,W,H,[selected],rand).events;
   assert.deepEqual(hit.map(e=>e.type),["good"]);
   assert.equal(stepMiniRound(correct,0.02,W,H,[selected],rand).events.length,0);
   const wrong=createMiniRound("color-match",10);wrong.playing=true;
+  stepMiniRound(wrong,0.02,W,H,[hand(5,5)],rand);
   const miss=stepMiniRound(wrong,0.02,W,H,[at(COLOR_SPOTS[1])],rand).events;
   assert.deepEqual(miss.map(e=>e.type),["miss"]);
   assert.equal(stepMiniRound(wrong,0.02,W,H,[at(COLOR_SPOTS[1])],rand).events.length,0);
@@ -111,11 +113,13 @@ test("star spawning stays away from a held hand even if random returns a constan
 test("meteor shower distinguishes punches, double-hand attacks and body impacts",()=>{
   const r=createMiniRound("meteor-dodge",10);r.playing=true;
   r.items=[{id:1,x:.5,y:.5,vx:0,vy:0,radius:.05,age:0}];
+  stepMiniRound(r,.02,W,H,[hand(5,5)],rand);
   assert.deepEqual(stepMiniRound(r,.02,W,H,[hand(.5*W,.5*H)],rand).events.map(e=>e.type),["hit"]);
   r.items=[{id:2,x:.5,y:.5,vx:0,vy:0,radius:.086,age:0,large:true}];
   assert.equal(stepMiniRound(r,.02,W,H,[hand(.5*W,.5*H)],rand).events.length,0);
   const left:Point={part:"leftHand",x:.445*W,y:.5*H,radius:12};
   const right:Point={part:"rightHand",x:.555*W,y:.5*H,radius:12};
+  stepMiniRound(r,.02,W,H,[hand(5,5),{...right,x:790,y:490}],rand);
   assert.deepEqual(stepMiniRound(r,.02,W,H,[left,right],rand).events.map(e=>e.type),["perfect"]);
   r.items=[{id:3,x:.5,y:.5,vx:0,vy:0,radius:.05,age:0}];
   const head:Point={part:"head",x:.5*W,y:.5*H,radius:12};
