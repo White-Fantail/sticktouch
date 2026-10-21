@@ -37,7 +37,7 @@ test("nine original titles are registered on stable game ids",()=>{
     "freeze-dance":"프리즈 비트","constellation-trace":"별자리 제작자",
     "memory-sequence":"몸으로 암호 풀기"
   };
-  assert.equal(GAMES.length,42);
+  assert.equal(GAMES.length,53);
   for(const [id,name] of Object.entries(names))
     assert.equal(GAMES.find(g=>g.id===id)?.title,name);
   for(const id of ADVANCED_GAME_IDS){

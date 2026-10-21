@@ -15,7 +15,7 @@ const pose=():Landmark[]=>{
   return landmarks;
 };
 test("all registered games support shared 30/45/60 modes and their recommendations",()=>{
-  assert.equal(GAMES.length,42);
+  assert.equal(GAMES.length,53);
   for(const game of GAMES){
     assert.ok(ROUND_DURATIONS.includes(game.recommendedSeconds),game.id);
     for(const seconds of ROUND_DURATIONS){

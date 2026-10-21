@@ -28,7 +28,7 @@ function frame(r:ReturnType<typeof createBodyRound>,p=body(),ps=points(p),dt=.08
 test("all 11 missing whole-body games are discoverable with distinct runtime and guidance",()=>{
   assert.equal(BODY_GAME_IDS.length,11);
   assert.equal(new Set(BODY_GAME_IDS).size,11);
-  assert.equal(GAMES.length,42);
+  assert.equal(GAMES.length,53);
   for(const id of BODY_GAME_IDS){
     const game=GAMES.find(g=>g.id===id);
     assert.equal(game?.status,"available",id);

@@ -27,7 +27,7 @@ const hands=[at(.20,.30),at(.80,.30,"rightHand")];
 test("all seven creative games appear in the catalog and share live game runtime",()=>{
   assert.equal(CREATIVE_GAME_IDS.length,7);
   assert.equal(new Set(CREATIVE_GAME_IDS).size,7);
-  assert.equal(GAMES.length,42);
+  assert.equal(GAMES.length,53);
   for(const id of CREATIVE_GAME_IDS){
     const definition=GAMES.find(g=>g.id===id);
     assert.equal(definition?.status,"available",id);
