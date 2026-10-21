@@ -11,11 +11,18 @@ import {paintExpertScene} from "../games/expert-arcade/scene";
 import {paintBodyScene} from "../games/body-arcade/scene";
 import {paintSportScene} from "../games/sports-arcade/scene";
 import {paintCreativeScene} from "../games/creative-arcade/scene";
+import {paintQuestScene} from "../games/quest-arcade/scene";
 
 export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,
   pose:Landmark[]|undefined,points:Point[],view:Viewport,round:GameRound,
   mode:DisplayMode,rings:boolean,width:number,height:number){
   switch(round.kind){
+    case "laser-mirror":case "space-rescuer":case "deep-sea-explorer":
+    case "memory-ghost":case "time-bomb-pass":case "magic-garden":
+    case "monster-maker":case "time-clone":case "i-am-path":
+    case "body-programming":case "move-world":
+      paint(ctx,video,pose,[],points,view,mode,rings);
+      paintQuestScene(ctx,round.state,width,height,points,pose,view);return;
     case "air-drummer":case "music-maker":case "zombie-dance-battle":
     case "body-charades":case "body-painter":case "human-orchestra":case "shadow-theater":
       paint(ctx,video,pose,[],points,view,mode,rings);

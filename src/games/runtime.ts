@@ -10,6 +10,7 @@ import {createExpertRound,stepExpertRound,TRACE_PARTS,type ExpertGameId,type Exp
 import {createBodyRound,stepBodyRound,type BodyGameId,type BodyRound} from "./body-arcade/game.ts";
 import {createSportRound,stepSportRound,type SportGameId,type SportRound} from "./sports-arcade/game.ts";
 import {createCreativeRound,stepCreativeRound,trackedCreative,type CreativeGameId,type CreativeRound} from "./creative-arcade/game.ts";
+import {createQuestRound,stepQuestRound,trackedQuest,type QuestGameId,type QuestRound} from "./quest-arcade/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
@@ -20,11 +21,17 @@ export type GameRound =
   | {kind:ExpertGameId;state:ExpertRound}
   | {kind:BodyGameId;state:BodyRound}
   | {kind:SportGameId;state:SportRound}
-  | {kind:CreativeGameId;state:CreativeRound};
+  | {kind:CreativeGameId;state:CreativeRound}
+  | {kind:QuestGameId;state:QuestRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
 export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS as RoundDuration):GameRound {
   switch(id){
+    case "laser-mirror":case "space-rescuer":case "deep-sea-explorer":
+    case "memory-ghost":case "time-bomb-pass":case "magic-garden":
+    case "monster-maker":case "time-clone":case "i-am-path":
+    case "body-programming":case "move-world":
+      return {kind:id,state:createQuestRound(id,seconds)};
     case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
     case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
       return {kind:id,state:createSportRound(id,seconds)};
@@ -70,6 +77,11 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
   const torso=visible(0)&&visible(11)&&visible(12)&&visible(23)&&visible(24);
   const body=torso&&visible(25)&&visible(26)&&visible(31)&&visible(32);
   switch(round.kind){
+    case "laser-mirror":case "space-rescuer":case "deep-sea-explorer":
+    case "memory-ghost":case "time-bomb-pass":case "magic-garden":
+    case "monster-maker":case "time-clone":case "i-am-path":
+    case "body-programming":case "move-world":
+      return trackedQuest(round.kind,points,pose);
     case "air-drummer":case "music-maker":case "zombie-dance-battle":
     case "body-charades":case "body-painter":case "human-orchestra":case "shadow-theater":
       return trackedCreative(round.kind,points,pose);
@@ -106,6 +118,11 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
   points:Point[],pose:readonly Landmark[]|undefined,view:Viewport):{finished:boolean;events:GameEvent[]} {
   const speed=gameplaySpeed(round.state.time);
   switch(round.kind){
+    case "laser-mirror":case "space-rescuer":case "deep-sea-explorer":
+    case "memory-ghost":case "time-bomb-pass":case "magic-garden":
+    case "monster-maker":case "time-clone":case "i-am-path":
+    case "body-programming":case "move-world":
+      return stepQuestRound(round.state,dt,width,height,points,pose,view,speed);
     case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
     case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
       return stepSportRound(round.state,dt,width,height,points,speed);
@@ -129,6 +146,17 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
 }
 export function gameHint(id:string){
   switch(id){
+    case "laser-mirror":return "팔뚝을 천천히 회전시켜 레이저가 목표에 닿게 하세요. 정답 각도를 처음부터 유지했다면 풀었다가 다시 맞춰요.";
+    case "space-rescuer":return "양손 사이로 우주선을 조종해 우주인을 태우고, 소행성을 피해 아래 기지로 돌아오세요. 목표 밖에서 새로 진입해야 해요.";
+    case "deep-sea-explorer":return "두 손으로 잠수함을 조종해 심해 보물을 잡고 수면 기지까지 올라오세요. 산소가 줄어드니 서둘러요.";
+    case "memory-ghost":return "오른손으로 먼저 궤적을 크게 그려 녹화한 뒤, 잠시 후 나타나는 시간 유령의 궤적을 같은 손으로 재현하세요.";
+    case "time-bomb-pass":return "지정된 손으로 폭탄을 먼저 집고 다른 손으로 다음 원을 터치하세요. 시간 제한과 좌우·높이 규칙을 확인하세요.";
+    case "magic-garden":return "해당 화분에 씨앗을 심고 물방울을 터치한 다음 두 손을 내려 놓았다가 함께 높이 들어 햇빛을 주세요.";
+    case "monster-maker":return "네 부품을 차례대로 손으로 조립하고 몸을 숙이거나 양손을 머리 위로 올려 공격을 막으세요.";
+    case "time-clone":return "왼손으로 크게 움직여 녹화하세요. 이어서 과거 왼손의 거울 움직임을 현재 오른손으로 시간에 맞춰 재현하세요.";
+    case "i-am-path":return "표시된 손·발을 움직여 길을 그려요. 빨간 장애물에 선이 닿지 않도록 돌아서 목표 깃발까지 연결하세요.";
+    case "body-programming":return "손으로 화살표 세 개를 순서대로 입력하세요. 명령이 실행된 뒤 로봇이 4×4 격자의 깃발에 도착하면 성공이에요.";
+    case "move-world":return "몸 기울이기로 중력 방향을, 만세로 얼음 다리를, 몸 낮추기로 파도를 바꿔 구슬이 오른쪽 포털에 도달하게 하세요.";
     case "air-drummer":return "빛나는 드럼을 지정된 손이나 발로 두드려요. 원 밖으로 뺐다가 다시 안으로 들어와야 비트가 연주돼요.";
     case "music-maker":return "손바닥을 화면 가운데 현의 왼쪽과 오른쪽으로 왕복시키세요. 손의 높이에 따라 다른 음이 연주돼요.";
     case "zombie-dance-battle":return "좀비의 자세를 보고 먼저 다른 자세로 풀었다가 정확히 따라 하세요. 0.33초 유지하면 이겨요!";
