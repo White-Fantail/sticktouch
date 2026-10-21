@@ -5,6 +5,8 @@ export type GameEvent = {
   id:string; type:GameEventType; targetId?:string; time?:number;
   basePoints?:number; position?:FeedbackPosition; color?:string;
   bodyPart?:string;
+  /** Optional expressive sound via the shared Web Audio channel. */
+  pitch?:number;instrument?:"drum"|"keys"|"strings"|"brass"|"paint";
 };
 export type GameFeelProfile = {
   basePoints:number;
