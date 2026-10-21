@@ -91,22 +91,22 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
 export function gameHint(id:string){
   switch(id){
     case "fruit-catch":return "카메라 중앙에서 손을 조금만 좌우로 움직여도 바구니가 끝까지 이동해요. 과일을 받고 폭탄은 피하세요!";
-    case "pose-challenge":return "1.44초마다 다음 안무로 바뀌어요. 거울 속 전신 자세를 박자에 맞춰 따라 하세요.";
-    case "mole-whack":return "나타나는 두더지를 손으로 터치하세요. 놓치기 전에 빠르게!";
-    case "color-match":return "위에 표시된 색의 동그라미를 손으로 터치하세요.";
-    case "star-hunt":return "움직이는 별을 손으로 잡아보세요. 시간이 지나면 사라져요.";
-    case "meteor-dodge":return "손으로 작은 운석을 부수고, 커다란 운석은 양손으로 양옆을 동시에 공격하세요. 몸에 닿지 않도록!";
+    case "pose-challenge":return "1.44초마다 안무가 바뀌어요. 기본 자세에서 새 자세로 움직여 박자를 맞추세요.";
+    case "mole-whack":return "손을 두더지 밖으로 뺐다가 다시 넣어 터치하세요. 놓치기 전에 빠르게!";
+    case "color-match":return "손을 색깔 원 밖에서 안으로 움직여 정답을 선택하세요.";
+    case "star-hunt":return "손으로 움직이는 별을 쫓아가 터치하세요. 가만히 있으면 잡히지 않아요.";
+    case "meteor-dodge":return "손을 움직여 작은 운석을 타격하세요. 큰 운석은 양손을 각각 밖에서 안으로 넣어 협동 공격!";
     case "freeze-dance":return "음악 10박자 동안 온몸으로 춤추고, STOP 6박자 동안 머리·손·발까지 모두 멈추세요.";
-    case "rhythm-pads":return "위쪽 패드는 왼손·오른손, 아래쪽은 왼발·오른발! 각 부위로 박자에 맞춰 패드를 터치하세요.";
+    case "rhythm-pads":return "위쪽은 양손, 아래쪽은 양발! 패드 밖에서 안으로 들어가는 동작으로 박자를 맞추세요.";
     case "shield-guard":return "공격 방향을 보고 팔뚝을 가로로 세워 실드를 만드세요. 각도가 맞으면 탄환이 반사돼요.";
-    case "memory-sequence":return "나타나는 전신 자세를 순서대로 외운 후, 같은 자세를 0.4초씩 유지해 암호를 해독하세요.";
+    case "memory-sequence":return "순서를 외운 다음, 기존 자세를 풀고 새 자세를 0.4초 유지해 암호를 해독하세요.";
     case "laser-lane":return "레이저가 나타나기 전 몸을 숙이거나 양옆으로 기울여 피하세요. 머리부터 발까지 충돌을 검사합니다.";
-    case "parcel-sort":return "중앙 상자를 손으로 집고, 손을 움직여 같은 색의 배송함에 넣어요.";
+    case "parcel-sort":return "상자 밖에서 손을 넣어 집고, 배송함에도 새로 손을 넣어 배달하세요.";
     case "boss-raid":return "황금 약점이 열린 순간 손을 새로 넣어 터치해요. 빨간 공격 지역은 피하세요!";
     case "gravity-lab":return "두 손을 편하게 들고 시작하세요. 한쪽 손을 내리면 공이 그쪽으로, 양손을 함께 올리거나 내리면 공이 상하로 움직여요.";
-    case "shadow-sync":return "그림자의 움직임을 보고, 양손으로 두 목표를 동시에 따라가며 잠시 유지하세요.";
-    case "constellation-trace":return "각 별에 표시된 왼손·오른손·머리·왼발·오른발을 대세요. 연결 순서와 방향이 바뀝니다.";
-    case "dual-portals":return "서로 움직이는 두 포털에 양손을 동시에 놓고 잠시 유지해 에너지를 보내세요.";
-    default:return "주황=왼손, 파랑=발, 보라=머리, 초록=오른손! 색깔에 맞는 부위로 버블을 터뜨려요.";
+    case "shadow-sync":return "그림자를 본 뒤 두 손을 각 목표 밖에서 안으로 이동하고 잠시 유지하세요.";
+    case "constellation-trace":return "표시된 손·발·머리를 별 밖에서 안으로 움직여 연결하세요. 이미 겹치면 밖으로 뺐다 다시 터치!";
+    case "dual-portals":return "양손을 각각 포털 밖에서 안으로 움직여 동시에 잠시 유지하세요.";
+    default:return "주황=왼손, 파랑=발, 보라=머리, 초록=오른손! 부위를 버블 밖에서 안으로 움직여 터뜨려요.";
   }
 }
