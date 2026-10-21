@@ -230,9 +230,9 @@ function stepDance(round:MiniRound,dt:number,points:Point[],width:number,height:
  * Missing hand tracking freezes the timer and objects rather than counting failures. */
 export function stepMiniRound(round:MiniRound,delta:number,width:number,height:number,points:Point[],
   rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]} {
-  if(!round.playing||round.paused)return {finished:false,events:[]};
+  if(!round.playing||round.paused){round.touches.reset();return {finished:false,events:[]};}
   const hands=palmPoints(points);
-  if(!hands.length||width<=0||height<=0){round.lastHand=null;return {finished:false,events:[]};}
+  if(!hands.length||width<=0||height<=0){round.lastHand=null;round.touches.reset();return {finished:false,events:[]};}
   const dt=clamp(delta,0,0.08);
   round.time=Math.max(0,round.time-dt);
   const events:GameEvent[]=[];
