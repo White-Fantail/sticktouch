@@ -57,8 +57,11 @@ test("Dance Mirror includes a crouch move that requires knees",()=>{
   const a=player();
   a[15]={x:.4,y:.58,visibility:1};
   a[16]={x:.6,y:.58,visibility:1};
-  a[25]={x:.4,y:.76,visibility:1};
-  a[26]={x:.6,y:.76,visibility:1};
+  assert.equal(matchesPose(a,"squat"),false,"straight legs are not a squat");
+  a[25]={x:.20,y:.76,visibility:1};
+  a[26]={x:.80,y:.76,visibility:1};
+  a[31]={x:.39,y:.94,visibility:1};
+  a[32]={x:.61,y:.94,visibility:1};
   assert.equal(matchesPose(a,"squat"),true);
   a[25].visibility=0;
   assert.equal(matchesPose(a,"squat"),null);
