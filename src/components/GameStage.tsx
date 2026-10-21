@@ -9,21 +9,20 @@ import {useSettings} from "../settings/SettingsContext";
 import {Link} from "../app/navigation";
 import {ShareButton} from "./ShareButton";
 import {type GameDefinition} from "../games/registry";
-import {createGameRound,stepGameRound,gameViewport,gameTracking,gameHint,GAME_SECONDS} from "../games/runtime";
+import {createGameRound,stepGameRound,gameViewport,gameTracking,gameHint} from "../games/runtime";
 import {paintGameScene} from "../engine/game-scenes";
 import {GameFeelSession,type GameStats} from "../engine/game-feel";
 import {AudioManager} from "../engine/audio";
 import {EffectManager} from "../engine/effects";
 import {getBestRecord,saveBestRecord} from "../engine/records";
 import {createStartGesture,resetStartGesture,stepStartGesture} from "../engine/start-gesture";
-import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS,ARCADE_RULESET_VERSION} from "../engine/round-tempo";
+import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS,ROUND_DURATIONS,scoreMultiplier,rulesetForDuration,type RoundDuration} from "../engine/round-tempo";
 
 
 type Phase = "idle" | "loading" | "ready" | "error";
 const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
-const ROUND_SECONDS = GAME_SECONDS;
 const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간으로 인식합니다.";
 
 export function GameStage({game}: {game: GameDefinition}) {
@@ -49,11 +48,15 @@ export function GameStage({game}: {game: GameDefinition}) {
   const [maxCombo,setMaxCombo]=useState(0);
   const [stats,setStats]=useState<GameStats|null>(null);
   const [newBest,setNewBest]=useState(false);
-  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,ARCADE_RULESET_VERSION,hitbox)?.score??0);
+  const [selectedSeconds,setSelectedSeconds]=useState<RoundDuration>(game.recommendedSeconds);
+  // The long-lived camera loop must read the latest selection, not a stale callback.
+  const durationRef=useRef<RoundDuration>(selectedSeconds);
+  durationRef.current=selectedSeconds;
+  const [bestScore,setBestScore]=useState(()=>getBestRecord(game.id,rulesetForDuration(game.recommendedSeconds),hitbox)?.score??0);
   useEffect(()=>{
-    setBestScore(getBestRecord(game.id,ARCADE_RULESET_VERSION,hitbox)?.score??0);
-  },[game.id,hitbox]);
-  const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
+    setBestScore(getBestRecord(game.id,rulesetForDuration(selectedSeconds),hitbox)?.score??0);
+  },[game.id,hitbox,selectedSeconds]);
+  const [timeLeft,setTimeLeft]=useState(game.recommendedSeconds);
   const [finished,setFinished]=useState(false);
   const [gestureProgress,setGestureProgress]=useState(0);
   const [countdown,setCountdown]=useState(0);
@@ -246,7 +249,7 @@ export function GameStage({game}: {game: GameDefinition}) {
           const result=stepGameRound(gameRef.current,dt,width,height,points,posesRef.current,v);
           if(result.events.length){
             for(const event of result.events){
-              const feedback=feelRef.current.dispatch(event);
+              const feedback=feelRef.current.dispatch(event,scoreMultiplier(g.time));
               if(!feedback)continue;
               effectsRef.current.emit(feedback,reducedMotionRef.current?"off":s.effectsQuality);
               audioRef.current.cue(feedback.milestone?"milestone":feedback.type);
@@ -268,7 +271,7 @@ export function GameStage({game}: {game: GameDefinition}) {
             resetStartGesture(gestureRef.current,true);
             audioRef.current.stopMusic();audioRef.current.cue("finish");
             const snapshot=feelRef.current.stats;
-            const saved=saveBestRecord(game.id,ARCADE_RULESET_VERSION,snapshot,s.hitbox);
+            const saved=saveBestRecord(game.id,rulesetForDuration(durationRef.current),snapshot,s.hitbox);
             setStats(snapshot);setNewBest(saved.isNew);setBestScore(saved.record?.score??0);
             setPlaying(false);setFinished(true);setTimeLeft(0);
           }
@@ -297,13 +300,13 @@ export function GameStage({game}: {game: GameDefinition}) {
     if(!trackerRef.current || quickSettingsOpenRef.current)return;
     countdownRef.current=0;setCountdown(0);setGestureProgress(0);
     resetStartGesture(gestureRef.current,true);
-    gameRef.current=createGameRound(game.id);
+    gameRef.current=createGameRound(game.id,durationRef.current);
     const g=gameRef.current.state;
     feelRef.current.reset();effectsRef.current.reset();
     audioRef.current.start(game.feedback.musicTheme);audioRef.current.cue("start");
     g.playing=true;resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);setPaused(false);
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);setNewBest(false);
-    setTimeLeft(ROUND_SECONDS);setFinished(false);setPlaying(true);
+    setTimeLeft(durationRef.current);setFinished(false);setPlaying(true);
   };
   const end=()=>{
     gameRef.current.state.playing=false;gameRef.current.state.paused=false;setPaused(false);
@@ -312,7 +315,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     resumeAfterSettingsRef.current=false;quickSettingsOpenRef.current=false;setQuickSettingsOpen(false);
     audioRef.current.stopMusic();effectsRef.current.reset();feelRef.current.reset();
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);
-    setPlaying(false);setFinished(false);setTimeLeft(ROUND_SECONDS);
+    setPlaying(false);setFinished(false);setTimeLeft(durationRef.current);
   };
   const toggleCamera=async()=>{
     const next=side==="user"?"environment":"user";end();update({side:next});await start(next);
@@ -416,7 +419,7 @@ export function GameStage({game}: {game: GameDefinition}) {
         {phase==="ready"?(detected?(palmTracking&&preciseHands?"관절 + 손바닥 추적 중":"관절 추적 중"):"카메라 연결됨"):phase==="loading"?"준비 중":"카메라 꺼짐"}
         </span>
         <div className="stage-quick-actions">
-          <span>{game.title} · {game.duration}</span>
+          <span>{game.title} · {selectedSeconds}초</span>
           <button type="button" ref={quickSettingsButtonRef} className="stage-quick-settings-button"
             onClick={openQuickSettings} aria-label="게임 간편 설정 열기">⚙</button>
         </div>
@@ -432,7 +435,7 @@ export function GameStage({game}: {game: GameDefinition}) {
         {phase==="ready" && !detected && <div className="detection-hint">몸이 화면에 충분히 보이도록 카메라를 조정해 주세요.</div>}
         {phase==="ready" && <div className="hud game-hud">
           <span><small>SCORE</small><b>{score.toLocaleString()}</b></span>
-          <span className={playing&&timeLeft<=10?"hud-timer urgency":"hud-timer"}>
+          <span className={playing&&timeLeft<=FINAL_RUSH_SECONDS?"hud-timer urgency":"hud-timer"}>
             <small>TIME</small><b>{timeLeft}s</b>
           </span>
           {playing&&<span className={combo>=5?"hud-combo hot":"hud-combo"} key={"combo-"+combo}>
@@ -453,7 +456,7 @@ export function GameStage({game}: {game: GameDefinition}) {
         {phase==="ready" && !playing && !quickSettingsOpen && countdown>0 &&
           <div className="gesture-count-in" aria-live="polite"><strong>{countdown}</strong><span>준비!</span></div>}
         {phase==="ready" && playing && timeLeft<=FINAL_RUSH_SECONDS && !paused && !quickSettingsOpen &&
-          <div className="final-rush-label">⚡ LAST 10 · SPEED UP!</div>}
+          <div className="final-rush-label">⚡ FEVER 15 · SPEED UP · SCORE ×2!</div>}
         {phase==="ready" && playing && paused && !quickSettingsOpen && <div className="paused-overlay">
           <strong>일시정지</strong><p>준비되면 게임을 계속하세요.</p>
           <button className="primary" onClick={togglePause}>▶ 계속하기</button></div>}
@@ -480,6 +483,18 @@ export function GameStage({game}: {game: GameDefinition}) {
           onPreviewSfx={previewSfx} theme={game.feedback.musicTheme}/>}
       </div>
       <div className="play-stage-bottom">
+        {!playing && countdown===0 && !quickSettingsOpen && <div className="round-duration-picker" role="group" aria-label="게임 시간 선택">
+          <span>플레이 시간</span>
+          {ROUND_DURATIONS.map(seconds=><button key={seconds} type="button"
+            className={selectedSeconds===seconds?"active":""}
+            aria-pressed={selectedSeconds===seconds}
+            onClick={()=>{
+              durationRef.current=seconds;setSelectedSeconds(seconds);setTimeLeft(seconds);
+              if(finished){setFinished(false);setScore(0);setCombo(0);setMaxCombo(0);setStats(null);setNewBest(false);}
+            }}>
+            {seconds}초{seconds===game.recommendedSeconds?" ★":""}
+          </button>)}
+        </div>}
         <span>{phase==="ready"?(detected?gameHint(game.id):game.id==="fruit-catch"?"양손이 화면 아래 카메라에 보이도록 해 주세요.":game.id==="pose-challenge"?"목표 자세에 필요한 관절이 보이도록 카메라 거리를 조정해 주세요.":"몸 전체가 보이도록 한 걸음 물러서세요"):message}</span>
         <div className="actions">{phase==="ready" && <>
           {playing ? <>

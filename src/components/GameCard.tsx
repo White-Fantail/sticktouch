@@ -9,7 +9,7 @@ export function GameCard({game}: {game: GameDefinition}) {
       {game.artwork === "balloons" && <><i/><i/><i/></>}
     </div>
     <div className="catalog-card-content">
-      <div className="card-info"><span>{CATEGORY_LABELS[game.category]}</span><span>{game.duration}</span></div>
+      <div className="card-info"><span>{CATEGORY_LABELS[game.category]}</span><span>{game.recommendedSeconds}초 권장</span></div>
       <h3>{game.title}</h3><p>{game.tagline}</p>
       <div className="catalog-card-bottom">
         <span className={available ? "availability good" : "availability"}>{available ? "● 플레이 가능" : "○ 준비 중"}</span>

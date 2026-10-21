@@ -43,8 +43,8 @@ export function SettingsPage() {
           <div className="tip"><b>안전 안내</b><p>게임 전 주변 장애물을 치우고 몸이 화면에 충분히 보이도록 서 주세요. 모바일에서는 가로 화면을 권장해요.</p></div>
         </>}
         {tab==="game" && <>
-          <h2>게임 기본값</h2><p className="panel-description">게임별 시간과 난이도는 향후 각 게임의 시작 화면에서 선택할 수 있도록 확장할 예정이에요.</p>
-          <div className="setting-group"><label>게임 진행</label><p>풍선 터뜨리기는 현재 60초 라운드로 플레이합니다.</p></div>
+          <h2>게임 기본값</h2><p className="panel-description">게임 시작 전에 30초(짧게), 45초(기본), 60초(길게) 중 선택할 수 있어요. 게임마다 권장 시간이 자동으로 선택됩니다.</p>
+          <div className="setting-group"><label>게임 진행</label><p>대부분의 게임은 45초를 권장하고, 빠른 반응 게임은 30초, 중력 미로·별자리 제작자는 60초를 권장해요. 마지막 15초는 속도 상승 + 점수 2배 피버 타임입니다.</p></div>
           <div className="setting-group">
             <div className="setting-line"><label htmlFor="musicEnabled">배경음악</label>
               <input type="checkbox" id="musicEnabled" checked={settings.musicEnabled}
