@@ -3,12 +3,13 @@ import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type MiniGameId="mole-whack"|"color-match"|"star-hunt"|"meteor-dodge"|"freeze-dance";
-export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number};
+export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number;large?:boolean};
 export type MiniRound={
   kind:MiniGameId;playing:boolean;paused:boolean;score:number;time:number;
   seq:number;slot:number;lockedSlot:number;phaseTime:number;wait:number;
   items:MiniItem[];green:boolean;redTravel:number;danceDistance:number;
   redPenalty:boolean;lastHand:{part:string;x:number;y:number}|null;
+  previousBody:Record<string,{x:number;y:number}>;
 };
 export const MINI_GAME_IDS:readonly MiniGameId[]=[
   "mole-whack","color-match","star-hunt","meteor-dodge","freeze-dance"
@@ -25,7 +26,7 @@ export const COLOR_HEX=["#ff696e","#58b7ff","#ffe071"] as const;
 export function createMiniRound(kind:MiniGameId,seconds=ROUND_DURATION_SECONDS):MiniRound {
   return {kind,playing:false,paused:false,score:0,time:seconds,
     seq:0,slot:-1,lockedSlot:-1,phaseTime:0,wait:0,items:[],
-    green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null};
+    green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null,previousBody:{}};
 }
 function palmPoints(points:readonly Point[]){return points.filter(p=>p.part==="leftHand"||p.part==="rightHand");}
 function touch(p:Point,spot:{x:number;y:number},radius:number,width:number,height:number){
@@ -119,57 +120,90 @@ function stepStar(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
     round.items=[];round.wait=0.13;
   }
 }
-function stepMeteor(round:MiniRound,dt:number,hands:Point[],width:number,height:number,
+function stepMeteor(round:MiniRound,dt:number,points:Point[],width:number,height:number,
   rand:()=>number,events:GameEvent[]){
   round.phaseTime+=dt;
-  if(round.phaseTime>=Math.max(0.56,1.1-(ROUND_DURATION_SECONDS-round.time)*0.005)){
+  if(round.phaseTime>=Math.max(.52,1.02-(ROUND_DURATION_SECONDS-round.time)*.006)){
     round.phaseTime=0;
-    const fromLeft=rand()<0.5,speed=0.27+rand()*0.13;
-    round.items.push({id:++round.seq,x:fromLeft?-0.1:1.1,y:0.25+rand()*0.54,
-      vx:fromLeft?speed:-speed,vy:0,radius:0.055,age:0});
+    const fromLeft=rand()<.5,speed=.25+rand()*.14,large=rand()<.32;
+    round.items.push({id:++round.seq,x:fromLeft?-.13:1.13,y:.27+rand()*.49,
+      vx:fromLeft?speed:-speed,vy:0,radius:large?.086:.054,age:0,large});
   }
+  const hands=palmPoints(points);
   const live:MiniItem[]=[];
   for(const meteor of round.items){
     meteor.x+=meteor.vx*dt;meteor.age+=dt;
-    if(hands.some(p=>touch(p,meteor,meteor.radius,width,height))){
+    const left={x:meteor.x-.055,y:meteor.y};
+    const right={x:meteor.x+.055,y:meteor.y};
+    const paired=hands.length>=2&&hands.some(a=>touch(a,left,.060,width,height)&&
+      hands.some(b=>b.part!==a.part&&touch(b,right,.060,width,height)));
+    const punched=!meteor.large&&hands.some(p=>touch(p,meteor,meteor.radius,width,height));
+    const damaged=points.some(p=>["head","leftFoot","rightFoot"].includes(p.part)&&
+      touch(p,meteor,meteor.radius,width,height));
+    if(paired||punched){
+      events.push({id:"meteor:destroy:"+meteor.id,type:meteor.large?"perfect":"hit",
+        targetId:"meteor:"+meteor.id,basePoints:meteor.large?40:22,
+        position:{x:meteor.x*width,y:meteor.y*height},color:"#ffe3a1"});
+    }else if(damaged){
       events.push({id:"meteor:damage:"+meteor.id,type:"damage",targetId:"meteor:"+meteor.id,
         position:{x:meteor.x*width,y:meteor.y*height},color:"#ff7b7b"});
-    }else if(meteor.x<-0.13||meteor.x>1.13){
+    }else if(meteor.x<-.17||meteor.x>1.17){
       events.push({id:"meteor:dodge:"+meteor.id,type:"collect",targetId:"meteor:"+meteor.id,
-        basePoints:15,position:{x:clamp(meteor.x,0,1)*width,y:meteor.y*height},color:"#aaf7c5"});
+        basePoints:10,position:{x:clamp(meteor.x,0,1)*width,y:meteor.y*height},color:"#aaf7c5"});
     }else live.push(meteor);
   }
   round.items=live;
 }
-function stepDance(round:MiniRound,dt:number,hands:Point[],width:number,height:number,
+function stepDance(round:MiniRound,dt:number,points:Point[],width:number,height:number,
   events:GameEvent[]){
-  const hand=hands.find(p=>p.part===round.lastHand?.part)??hands[0];
-  const next={part:hand.part,x:hand.x,y:hand.y};
-  const prev=round.lastHand;
-  const raw=prev&&prev.part===hand.part?
-    Math.hypot((hand.x-prev.x)/width,(hand.y-prev.y)/height):0;
-  // Ignore sub-pixel jitter and sudden tracking jumps.
-  const distance=raw<0.0015||raw>0.14?0:raw;
-  round.lastHand=next;round.phaseTime+=dt;
+  // This samples the entire skeleton; moving only an unseen/irrelevant hand cannot
+  // substitute for freezing one's torso, head and feet on the STOP beat.
+  const current:Record<string,{x:number;y:number}>={};
+  let distance=0,tracked=0;
+  for(const p of points){
+    if(!Number.isFinite(p.x)||!Number.isFinite(p.y))continue;
+    current[p.part]={x:p.x,y:p.y};
+    const last=round.previousBody[p.part];
+    if(!last)continue;
+    const raw=Math.hypot((p.x-last.x)/width,(p.y-last.y)/height);
+    if(raw>=.0018&&raw<=.14){distance+=raw;tracked++;}
+  }
+  round.previousBody=current;
+  const oldGreen=round.green;
+  round.phaseTime+=dt;
+  // The rhythm soundtrack ticks every .24 seconds. Dance for 10 beats,
+  // then hold still for 6; repeat on the downbeat.
+  const beat=Math.floor(round.phaseTime/.24)%16;
+  round.green=beat<10;
+  if(round.green!==oldGreen){
+    round.redTravel=0;round.redPenalty=false;round.danceDistance=0;
+  }
+  const motion=tracked>0?distance:0;
   if(round.green){
-    round.danceDistance+=distance;
-    if(round.danceDistance>=0.18){
-      round.danceDistance-=0.18;
-      events.push({id:"dance:move:"+ ++round.seq,type:"collect",
-        targetId:"dance:"+round.seq,basePoints:20,
-        position:{x:hand.x,y:hand.y},color:"#90f9b7"});
+    round.danceDistance+=motion;
+    if(round.danceDistance>=.145){
+      round.danceDistance-=.145;
+      const p=points.find(p=>p.part==="head")??points[0];
+      events.push({id:"freeze:beat:"+ ++round.seq,type:"collect",
+        targetId:"freeze:"+round.seq,basePoints:20,
+        position:{x:p.x,y:p.y},color:"#90f9b7"});
     }
-    if(round.phaseTime>=3.7){round.green=false;round.phaseTime=0;
-      round.redTravel=0;round.redPenalty=false;round.lastHand=next;}
   }else{
-    if(round.phaseTime>0.25)round.redTravel+=distance;
-    if(round.redTravel>=0.048&&!round.redPenalty){
+    // Ignore a short transition immediately after the STOP downbeat.
+    if(round.phaseTime%(.24*16)>.24*10+.20)round.redTravel+=motion;
+    if(round.redTravel>=.043&&!round.redPenalty){
       round.redPenalty=true;
-      events.push({id:"dance:move-red:"+ ++round.seq,type:"damage",
-        position:{x:hand.x,y:hand.y},color:"#ff8f8f"});
+      const p=points.find(p=>p.part==="head")??points[0];
+      events.push({id:"freeze:break:"+ ++round.seq,type:"damage",
+        position:{x:p.x,y:p.y},color:"#ff8f8f"});
     }
-    if(round.phaseTime>=2.3){round.green=true;round.phaseTime=0;
-      round.danceDistance=0;round.lastHand=next;}
+    // Award a successful freeze once on the following GO downbeat.
+    if(beat===15&&!round.redPenalty&&round.redTravel<.022&&
+      round.phaseTime%(.24*16) >= .24*15+.16){
+      round.redPenalty=true;
+      events.push({id:"freeze:perfect:"+ ++round.seq,type:"perfect",
+        basePoints:28,position:{x:width*.5,y:height*.5},color:"#ccf7ff"});
+    }
   }
 }
 /** Pure gameplay: all five games emit platform GameEvents; the host owns score/combo/audio.
@@ -187,8 +221,8 @@ export function stepMiniRound(round:MiniRound,delta:number,width:number,height:n
     case "mole-whack":stepMole(round,simDt,hands,width,height,rand,events);break;
     case "color-match":stepColor(round,simDt,hands,width,height,rand,events);break;
     case "star-hunt":stepStar(round,simDt,hands,width,height,rand,events);break;
-    case "meteor-dodge":stepMeteor(round,simDt,hands,width,height,rand,events);break;
-    case "freeze-dance":stepDance(round,simDt,hands,width,height,events);break;
+    case "meteor-dodge":stepMeteor(round,simDt,points,width,height,rand,events);break;
+    case "freeze-dance":stepDance(round,simDt,points,width,height,events);break;
   }
   if(round.time<=0)round.playing=false;
   return {finished:round.time<=0,events};
