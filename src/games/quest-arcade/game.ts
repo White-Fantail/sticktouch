@@ -354,7 +354,7 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
     }
     case "body-programming":{
       if(r.step===0){
-        console.log("quest-branch-debug",r.kind,r.cooldown,r.instructions.length,points.map(p=>p.part));
+        console.log("quest-branch-debug",r.kind,r.cooldown,r.instructions.length,points.map(p=>p.part),COMMAND_BUTTONS.length);
         r.robot={x:1,y:2};
         if(r.cooldown<=0&&r.instructions.length<3){
           for(const b of COMMAND_BUTTONS){
@@ -364,6 +364,7 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
             }
           }
         }
+        console.log("quest-after-loop",r.instructions,(r.touches as unknown as {entries:Map<string,unknown>}).entries.size);
         if(r.instructions.length===3){r.step=1;r.execution=0;r.phase=0;}
         if(r.phase>9)fail(r,events,w,h);
       }else{
