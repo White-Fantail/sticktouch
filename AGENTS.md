@@ -321,3 +321,12 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - 시작 제스처/버튼 시작·재시작 모두 선택한 시간을 이용하고, 개인 최고점은 `v3-fever15-double-<seconds>s` 규칙과 터치 크기로 나눠 저장해 이전 30초·60초 기록과 비교하지 않는다.
 - 낙하 과일, 운석, 실드의 누적 난이도는 **선택한 라운드의 실제 경과 시간**을 계산해 시작부터 최대 난이도가 되지 않도록 한다.
 - 공통 타이머, 등록 정보, 런타임, GameFeel, GameStage, 테스트와 문서를 함께 수정했다. 실기기 모션·오디오 검증은 별도 필요.
+
+
+## 2026-10-21 — 스포츠·물리 게임 6종 (dev)
+
+- `src/games/sports-arcade/game.ts`의 `SportRound`는 카메라 화면 분수 좌표로 가벼운 2D 물리 업데이트를 수행한다. 게임 6종: super-goalkeeper, air-pingpong, motion-bowling, zero-g-basketball, fishing-master, i-am-gravity.
+- `src/games/sports-arcade/scene.ts`는 카메라/스틱맨 공통 렌더러 위에 골대·물체·낚싯줄·행성 등을 그린다. `src/games/runtime.ts`에서 조작부위와 시간·추적 및 실행 분기, `src/games/registry.ts`에서 스포츠·물리 카테고리를 관리한다.
+- 손의 이전 추적 위치와 현재 위치 사이의 **실제 움직임**을 기준으로 투구·릴링·인력·척력을 발생시킨다. 충돌은 공통 `TouchEntries`의 밖→안 진입 조건 및 손 이동 여부를 함께 검사한다. 공만 움직여 정지한 손에 닿으면 반사/세이브 득점하지 않는다. 추적 손실 시 모든 게임 시간이 멈춘다.
+- 스코어·콤보·사운드 및 최고기록은 GameFeelEngine이 담당. 스포츠 모듈은 event만 보고한다. 화면 픽셀/정규화 좌표는 **정교한 3D 실제 물리나 절대 깊이 인식이 아니다**.
+- `tests/sports-arcade.test.ts`와 전체 `npm run test && npm run check && npm run build` 통과 전 출시 상태 변경 금지. 실제 iOS/Android 카메라의 스윙 민감도·프레임레이트·균형 조정은 추가 필요. `dev` 개발, `main`은 사용자 요청 시 별도 ff-only 검증 후 반영한다.
