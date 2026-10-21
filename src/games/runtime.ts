@@ -9,6 +9,7 @@ import {createAdvancedRound,stepAdvancedRound,type AdvancedGameId,type AdvancedR
 import {createExpertRound,stepExpertRound,TRACE_PARTS,type ExpertGameId,type ExpertRound} from "./expert-arcade/game.ts";
 import {createBodyRound,stepBodyRound,type BodyGameId,type BodyRound} from "./body-arcade/game.ts";
 import {createSportRound,stepSportRound,type SportGameId,type SportRound} from "./sports-arcade/game.ts";
+import {createCreativeRound,stepCreativeRound,trackedCreative,type CreativeGameId,type CreativeRound} from "./creative-arcade/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
@@ -18,7 +19,8 @@ export type GameRound =
   | {kind:AdvancedGameId;state:AdvancedRound}
   | {kind:ExpertGameId;state:ExpertRound}
   | {kind:BodyGameId;state:BodyRound}
-  | {kind:SportGameId;state:SportRound};
+  | {kind:SportGameId;state:SportRound}
+  | {kind:CreativeGameId;state:CreativeRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
 export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS as RoundDuration):GameRound {
@@ -26,6 +28,9 @@ export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_S
     case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
     case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
       return {kind:id,state:createSportRound(id,seconds)};
+    case "air-drummer":case "music-maker":case "zombie-dance-battle":
+    case "body-charades":case "body-painter":case "human-orchestra":case "shadow-theater":
+      return {kind:id,state:createCreativeRound(id,seconds)};
     case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound(seconds)};
     case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound(seconds)};
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
@@ -65,6 +70,9 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
   const torso=visible(0)&&visible(11)&&visible(12)&&visible(23)&&visible(24);
   const body=torso&&visible(25)&&visible(26)&&visible(31)&&visible(32);
   switch(round.kind){
+    case "air-drummer":case "music-maker":case "zombie-dance-battle":
+    case "body-charades":case "body-painter":case "human-orchestra":case "shadow-theater":
+      return trackedCreative(round.kind,points,pose);
     case "fruit-catch":return hand;
     case "super-goalkeeper":return hand||points.some(p=>p.part==="leftFoot"||p.part==="rightFoot");
     case "air-pingpong":case "motion-bowling":case "zero-g-basketball":case "fishing-master":return hand;
@@ -101,6 +109,9 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
     case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
     case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
       return stepSportRound(round.state,dt,width,height,points,speed);
+    case "air-drummer":case "music-maker":case "zombie-dance-battle":
+    case "body-charades":case "body-painter":case "human-orchestra":case "shadow-theater":
+      return stepCreativeRound(round.state,dt,width,height,points,pose,view,speed);
     case "balloon-pop":return stepBalloonRound(round.state,dt,width,height,points,speed);
     case "fruit-catch":return stepFruitRound(round.state,dt,width,height,basketInput(points,view),undefined,speed);
     case "pose-challenge":return stepPoseRound(round.state,dt,pose,width,height,speed);
@@ -118,6 +129,13 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
 }
 export function gameHint(id:string){
   switch(id){
+    case "air-drummer":return "빛나는 드럼을 지정된 손이나 발로 두드려요. 원 밖으로 뺐다가 다시 안으로 들어와야 비트가 연주돼요.";
+    case "music-maker":return "손바닥을 화면 가운데 현의 왼쪽과 오른쪽으로 왕복시키세요. 손의 높이에 따라 다른 음이 연주돼요.";
+    case "zombie-dance-battle":return "좀비의 자세를 보고 먼저 다른 자세로 풀었다가 정확히 따라 하세요. 0.33초 유지하면 이겨요!";
+    case "body-charades":return "제시어와 포즈 안내를 보고 새로운 동작을 만들어 0.55초 유지해요.";
+    case "body-painter":return "왼손은 하늘색, 오른손은 분홍색 붓이에요. 허공에서 손을 움직여 실제로 선을 그려요.";
+    case "human-orchestra":return "악기별로 다른 자세를 연주하세요. 먼저 기존 자세를 풀고 다음 자세를 만들어 박자를 맞춰요.";
+    case "shadow-theater":return "어두운 극장에 온몸의 관절 그림자가 비쳐요. 각 장면의 포즈를 바꿔 이야기를 완성하세요.";
     case "super-goalkeeper":return "골문으로 오는 공을 손이나 발을 직접 움직여 막아요. 가만히 있는 손에 맞아서는 세이브되지 않습니다.";
     case "air-pingpong":return "날아오는 공을 손바닥으로 휘둘러 라켓처럼 반사하세요. 손의 방향에 따라 공의 궤적이 달라져요.";
     case "motion-bowling":return "손을 화면 아래에서 위로 빠르게 움직여 투구하세요. 공의 궤적과 핀 사이의 충돌로 점수를 얻어요.";
