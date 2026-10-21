@@ -47,6 +47,7 @@ test("idle, pause and tracking loss never consume time or emit penalties",()=>{
 test("boss weak-point needs entry, deals one strike and telegraphs danger",()=>{
   const r=createExpertRound("boss-raid",10);r.playing=true;r.boss.age=.80;
   const target=at(r.boss.weak);
+  tick(r,.02,[hand(5,5)]); // observe the target from outside first
   assert.deepEqual(tick(r,.02,[target]).events.map(e=>e.type),["hit"]);
   assert.equal(r.boss.health,3);
   assert.deepEqual(tick(r,.02,[target]).events,[]);
@@ -58,7 +59,8 @@ test("boss weak-point needs entry, deals one strike and telegraphs danger",()=>{
 test("boss health stages progress on the fourth unique hit",()=>{
   const r=createExpertRound("boss-raid",20);r.playing=true;
   for(let i=0;i<4;i++){
-    r.boss.age=.8;r.boss.hit=false;r.boss.touching=false;
+    r.boss.age=.8;r.boss.hit=false;r.boss.touching=false;r.boss.cycle=i;
+    tick(r,.02,[hand(5,5)]);
     const events=tick(r,.02,[at(r.boss.weak)]).events;
     assert.equal(events[0]?.type,"hit");
     if(i===3)assert.deepEqual(events.map(e=>e.type),["hit","bonus"]);
@@ -80,6 +82,7 @@ test("two-hand tilt gives ball inertia; goal finishes only once per arrival",()=
 test("shadow replay requires both moving positions matched over time",()=>{
   const r=createExpertRound("shadow-sync",15);r.playing=true;
   r.shadow.phase="echo";r.shadow.age=0;
+  tick(r,.02,both);
   let successes=0;
   for(let i=0;i<12;i++){
     const targets=shadowTargets(r.shadow.age+.08,0);
@@ -95,7 +98,10 @@ test("shadow replay requires both moving positions matched over time",()=>{
 test("trace follows visible numbered nodes with one hand, then rotates pattern",()=>{
   const r=createExpertRound("constellation-trace",15);r.playing=true;
   const nodes=TRACE_PATTERNS[0],events=[];
-  for(let i=0;i<nodes.length;i++)events.push(...tick(r,.02,[at(nodes[i],TRACE_PARTS[0][i])]).events);
+  for(let i=0;i<nodes.length;i++){
+    tick(r,.02,[hand(5,5,TRACE_PARTS[0][i])]);
+    events.push(...tick(r,.02,[at(nodes[i],TRACE_PARTS[0][i])]).events);
+  }
   assert.deepEqual(events.map(e=>e.type),["good","good","good","good","good","bonus"]);
   assert.equal(r.trace.level,2);
   assert.equal(r.trace.pattern,1);
@@ -103,6 +109,7 @@ test("trace follows visible numbered nodes with one hand, then rotates pattern",
 });
 test("portal charge requires both drifting positions and blocks held farming",()=>{
   const r=createExpertRound("dual-portals",15);r.playing=true;
+  tick(r,.02,both);
   let collects=0;
   for(let i=0;i<16;i++){
     const spots=portalTargets(r.portal.age+.08,r.portal.stage);
@@ -178,7 +185,10 @@ test("trace alternates left, right, upward and downward starts across levels",()
   for(let pattern=0;pattern<4;pattern++){
     assert.equal(r.trace.pattern,pattern);
     const nodes=TRACE_PATTERNS[pattern];
-    for(let i=0;i<nodes.length;i++)tick(r,.02,[at(nodes[i],TRACE_PARTS[pattern][i])]);
+    for(let i=0;i<nodes.length;i++){
+      tick(r,.02,[hand(5,5,TRACE_PARTS[pattern][i])]);
+      tick(r,.02,[at(nodes[i],TRACE_PARTS[pattern][i])]);
+    }
   }
   assert.equal(r.trace.level,5);
   assert.equal(r.trace.pattern,4);
