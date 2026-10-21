@@ -259,11 +259,17 @@ export function stepSportRound(r:SportRound,delta:number,w:number,h:number,
       }
       const hook=r.hook;
       if(hook){
-        hook.vy+=.44*sim;
-        reflectWalls(hook,sim);
-        if(hook.y>.63){
-          hook.vx*=Math.pow(.955,sim*60);
-          hook.vy=clamp(hook.vy,-.65,.20);
+        if(r.hooked===null){
+          hook.vy+=.44*sim;
+          reflectWalls(hook,sim);
+          if(hook.y>.63){
+            hook.vx*=Math.pow(.955,sim*60);
+            hook.vy=clamp(hook.vy,-.65,.20);
+          }
+        }else{
+          // Once hooked, the fish is tethered. The player's upward reel
+          // must not fight leftover downward casting velocity.
+          hook.age+=sim;hook.vx=0;hook.vy=0;
         }
         const fish=r.fish.find(f=>f.id===r.hooked);
         if(r.hooked===null){
