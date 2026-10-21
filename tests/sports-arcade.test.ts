@@ -78,7 +78,7 @@ test("goalkeeper counts a missed goal after the ball crosses the goal line",()=>
 });
 test("ping-pong needs a real swat and reflects the ball upward",()=>{
   const r=createSportRound("air-pingpong",8,()=>.5);r.playing=true;
-  Object.assign(r.balls[0],{x:.5,y:.55,vx:0,vy:.25});
+  Object.assign(r.balls[0],{x:.5,y:.55,vx:0,vy:.08});
   tick(r,[palm(.5,.55)]);tick(r,[palm(.5,.55)]);
   assert.equal(r.stage,0);
   tick(r,[palm(.15,.55)]);
