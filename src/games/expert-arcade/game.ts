@@ -267,11 +267,12 @@ function portalStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
 /** Fixed-step friendly rules; a missing required hand freezes motion, misses, and clock. */
 export function stepExpertRound(r:ExpertRound,delta:number,w:number,h:number,points:Point[],
   rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]}{
-  if(!r.playing||r.paused)return {finished:false,events:[]};
+  if(!r.playing||r.paused){r.touches.reset();return {finished:false,events:[]};}
   const hands=palms(points);
   const needsTwo=r.kind==="gravity-lab"||r.kind==="shadow-sync"||r.kind==="dual-portals";
-  if((r.kind==="constellation-trace"?points.length===0:hands.length<(needsTwo?2:1))||!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)
-    return {finished:false,events:[]};
+  if((r.kind==="constellation-trace"?points.length===0:hands.length<(needsTwo?2:1))||!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0){
+    r.touches.reset();return {finished:false,events:[]};
+  }
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   r.time=Math.max(0,r.time-dt);
   const events:GameEvent[]=[];
