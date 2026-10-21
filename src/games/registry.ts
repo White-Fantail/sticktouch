@@ -1,7 +1,7 @@
 import type {GameFeelProfile} from "../engine/game-feel";
 import type {RoundDuration} from "../engine/round-tempo";
 import type {MusicTheme} from "../engine/audio";
-import {CREATIVE_CATALOG} from "./creative-arcade/catalog";
+import {CREATIVE_CATALOG} from "./creative-arcade/catalog.ts";
 export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics" | "creative";
 export type GameStatus = "available" | "coming-soon";
 export interface GameDefinition {
