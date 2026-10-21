@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {createExpertRound,stepExpertRound,EXPERT_GAME_IDS,TRACE_PATTERNS,
+import {createExpertRound,stepExpertRound,EXPERT_GAME_IDS,TRACE_PATTERNS,TRACE_PARTS,
   shadowTargets,portalTargets,mazeWallCollision} from "../src/games/expert-arcade/game.ts";
 import {createGameRound,gameTracking,gameHint,stepGameRound} from "../src/games/runtime.ts";
 import {GAMES} from "../src/games/registry.ts";
 import type {Point} from "../src/core.ts";
 
 const W=800,H=500;
-const hand=(x:number,y:number,part:"leftHand"|"rightHand"="leftHand"):Point=>
+const hand=(x:number,y:number,part:Point["part"]="leftHand"):Point=>
   ({x,y,part,radius:12});
 const at=(p:{x:number;y:number},part:"leftHand"|"rightHand"="leftHand")=>
   hand(p.x*W,p.y*H,part);
@@ -95,7 +95,7 @@ test("shadow replay requires both moving positions matched over time",()=>{
 test("trace follows visible numbered nodes with one hand, then rotates pattern",()=>{
   const r=createExpertRound("constellation-trace",15);r.playing=true;
   const nodes=TRACE_PATTERNS[0],events=[];
-  for(const node of nodes)events.push(...tick(r,.02,[at(node)]).events);
+  for(let i=0;i<nodes.length;i++)events.push(...tick(r,.02,[at(nodes[i],TRACE_PARTS[0][i])]).events);
   assert.deepEqual(events.map(e=>e.type),["good","good","good","good","good","bonus"]);
   assert.equal(r.trace.level,2);
   assert.equal(r.trace.pattern,1);
@@ -178,7 +178,7 @@ test("trace alternates left, right, upward and downward starts across levels",()
   for(let pattern=0;pattern<4;pattern++){
     assert.equal(r.trace.pattern,pattern);
     const nodes=TRACE_PATTERNS[pattern];
-    for(const node of nodes)tick(r,.02,[at(node,pattern%2?"rightHand":"leftHand")]);
+    for(let i=0;i<nodes.length;i++)tick(r,.02,[at(nodes[i],TRACE_PARTS[pattern][i])]);
   }
   assert.equal(r.trace.level,5);
   assert.equal(r.trace.pattern,4);
