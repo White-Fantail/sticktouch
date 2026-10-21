@@ -19,7 +19,7 @@ function tick(r:ReturnType<typeof createSportRound>,points:Point[],dt=.08){
 test("all six sports games appear in the catalog with distinct runtime rules",()=>{
   assert.equal(SPORT_GAME_IDS.length,6);
   assert.equal(new Set(SPORT_GAME_IDS).size,6);
-  assert.equal(GAMES.length,35);
+  assert.equal(GAMES.length,42);
   for(const id of SPORT_GAME_IDS){
     const entry=GAMES.find(g=>g.id===id);
     assert.equal(entry?.status,"available",id);
