@@ -3,7 +3,7 @@ import type {RoundDuration} from "../engine/round-tempo";
 import type {MusicTheme} from "../engine/audio";
 import {CREATIVE_CATALOG} from "./creative-arcade/catalog.ts";
 import {QUEST_CATALOG} from "./quest-arcade/catalog.ts";
-export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics" | "creative" | "quest";
+export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics" | "creative" | "quest" | "duo";
 export type GameStatus = "available" | "coming-soon";
 export interface GameDefinition {
   id: string;
@@ -11,6 +11,8 @@ export interface GameDefinition {
   tagline: string;
   description: string;
   category: GameCategory;
+  /** Existing games default to 1 player; two-person games opt in. */
+  players?: 1|2;
   status: GameStatus;
   /** Per-game recommendation, overridable before each round. */
   recommendedSeconds: RoundDuration;
@@ -149,6 +151,11 @@ export const GAMES: readonly GameDefinition[] = [
    artwork:"star",emoji:"🪐",feedback:{musicTheme:"rhythm"}},
   ...CREATIVE_CATALOG,
   ...QUEST_CATALOG,
+  {id:"co-op-power-plant",title:"협동 발전소",tagline:"두 사람이 함께 스위치를 켜요!",description:"손을 스위치 밖에서 안으로 움직여 동시에 유지하며 발전소를 가동하세요.",category:"duo",players:2,status:"available",recommendedSeconds:45,bodyParts:"2인 · 온몸",artwork:"color",emoji:"⚡",feedback:{musicTheme:"rhythm"}},
+  {id:"shadow-sword",title:"그림자 검술",tagline:"한 명은 공격, 한 명은 방어!",description:"공격자는 중앙으로 팔을 휘두르고 수비자는 손을 높이 올려 막는 턴제 대결.",category:"duo",players:2,status:"available",recommendedSeconds:45,bodyParts:"2인 · 온몸",artwork:"meteor",emoji:"⚔️",feedback:{musicTheme:"pop"}},
+  {id:"mirror-challenge",title:"미러 챌린지",tagline:"상대방 포즈를 거울처럼 따라!",description:"P1과 P2가 번갈아 리더가 되어 실제 양팔 동작을 좌우 반대로 재현해요.",category:"duo",players:2,status:"available",recommendedSeconds:45,bodyParts:"2인 · 온몸",artwork:"pose",emoji:"🪞",feedback:{musicTheme:"rhythm"}},
+  {id:"human-pingpong",title:"인간 핑퐁",tagline:"둘이서 공을 주고받자!",description:"각자의 손 위치로 패들을 조종하며 공을 주고받고 점수를 겨루세요.",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 온몸",artwork:"star",emoji:"🏓",feedback:{musicTheme:"fruit"}},
+  {id:"combine-robot",title:"합체 로봇",tagline:"P1 조종, P2 방어!",description:"한 명은 이동을 담당하고 한 명은 실드를 조작해 에너지를 모으고 위험물을 피해요.",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 온몸",artwork:"pose",emoji:"🤖",feedback:{musicTheme:"pop"}},
   {id:"intruder-alarm",title:"침입자 경보",tagline:"발로 누르고 손으로 잠금 해제!",
    description:"지정된 발로 바닥 압력판을 유지하면서 반대쪽 손으로 잠금장치를 해제하세요.",category:"move",status:"available",recommendedSeconds:60,
    bodyParts:"손 · 발",artwork:"pose",emoji:"🚨",feedback:{musicTheme:"pop"}}
@@ -157,5 +164,5 @@ export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);
 }
 export const CATEGORY_LABELS: Record<GameCategory, string> = {
-  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기", physics:"스포츠·물리", creative:"음악·창작·표현", quest:"탐험·퍼즐·독창적"
+  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기", physics:"스포츠·물리", creative:"음악·창작·표현", quest:"탐험·퍼즐·독창적",duo:"2인 협동·대결"
 };

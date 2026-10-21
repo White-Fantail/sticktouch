@@ -185,6 +185,6 @@ export function TwoPlayerPage(){
         <Link to="/settings" className="secondary duo-settings-link">⚙ 화면·카메라 설정</Link>
       </aside>
     </section>
-    <p className="duo-footnote">이 페이지는 플레이어 인식·구분 검증용입니다. 2인용 점수, 대결, 협동 게임은 아직 추가하지 않았습니다. 교차 동작과 모바일 성능은 실기기 확인이 필요해요.</p>
+    <p className="duo-footnote">이 페이지는 플레이어 인식·구분 검증용입니다. 실제 게임은 게임 탐색의 2인 협동·대결 카테고리에서 선택하세요. 교차 동작과 모바일 성능은 실기기 확인이 필요해요.</p>
   </main>;
 }

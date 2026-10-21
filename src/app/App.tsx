@@ -6,6 +6,7 @@ import {GamesPage} from "../pages/GamesPage";
 import {SettingsPage} from "../pages/SettingsPage";
 import {TwoPlayerPage} from "../pages/TwoPlayerPage";
 import {GameStage} from "../components/GameStage";
+import {DuoGameStage} from "../components/DuoGameStage";
 import {getGame} from "../games/registry";
 
 function PageRouter() {
@@ -16,7 +17,7 @@ function PageRouter() {
     pathname === "/players" ? "2인 인식 준비 | StickTouch" : "게임 플레이 | StickTouch";}, [pathname]);
   const gameId = pathname.startsWith("/play/") ? pathname.slice("/play/".length) : "";
   const game = getGame(gameId);
-  if (gameId && game?.status === "available") return <GameStage key={gameId} game={game}/>;
+  if (gameId && game?.status === "available") return game.players===2 ? <DuoGameStage key={gameId} game={game}/> : <GameStage key={gameId} game={game}/>;
   const page = pathname === "/" ? <HomePage/> : pathname === "/games" ? <GamesPage/> :
     pathname === "/settings" ? <SettingsPage/> : pathname === "/players" ? <TwoPlayerPage/> :
     <main className="site-container not-found"><h1>페이지를 찾을 수 없어요</h1><p>게임을 선택하거나 홈으로 돌아가 주세요.</p><Link className="primary" to="/games">게임 둘러보기 →</Link></main>;
