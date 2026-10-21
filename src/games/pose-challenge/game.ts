@@ -50,10 +50,16 @@ export function matchesPose(pose:readonly Landmark[]|undefined,kind:PoseName):bo
       return (lw.y<ls.y-torso*0.27&&rw.y>rs.y+torso*0.17)||
         (rw.y<rs.y-torso*0.27&&lw.y>ls.y+torso*0.17);
     case "squat":{
-      const lk=pose[25],rk=pose[26];
-      if(!visible(lk)||!visible(rk))return null;
-      const legSpan=((lk.y+rk.y)-(lh.y+rh.y))/2;
-      return legSpan<torso*.85&&legSpan>torso*.10&&
+      const lk=pose[25],rk=pose[26],la=pose[31],ra=pose[32];
+      if(!visible(lk)||!visible(rk)||!visible(la)||!visible(ra))return null;
+      // Require genuinely bent knees, not merely hands placed on the hips.
+      // A straight leg has an angle near 180 degrees (cosine near -1).
+      const kneeBend=(hip:Landmark,knee:Landmark,ankle:Landmark)=>{
+        const ax=hip.x-knee.x,ay=hip.y-knee.y;
+        const bx=ankle.x-knee.x,by=ankle.y-knee.y;
+        return (ax*bx+ay*by)/Math.max(.0001,Math.hypot(ax,ay)*Math.hypot(bx,by));
+      };
+      return kneeBend(lh,lk,la)>-.50&&kneeBend(rh,rk,ra)>-.50&&
         lw.y>ls.y&&rw.y>rs.y;
     }
     case "star":{
