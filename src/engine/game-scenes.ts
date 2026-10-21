@@ -9,11 +9,16 @@ import {paintMiniScene} from "../games/mini-arcade/scene";
 import {paintAdvancedScene} from "../games/advanced-arcade/scene";
 import {paintExpertScene} from "../games/expert-arcade/scene";
 import {paintBodyScene} from "../games/body-arcade/scene";
+import {paintSportScene} from "../games/sports-arcade/scene";
 
 export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,
   pose:Landmark[]|undefined,points:Point[],view:Viewport,round:GameRound,
   mode:DisplayMode,rings:boolean,width:number,height:number){
   switch(round.kind){
+    case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
+    case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
+      paint(ctx,video,pose,[],points,view,mode,rings);
+      paintSportScene(ctx,round.state,width,height,points);return;
     case "balloon-pop":
       paint(ctx,video,pose,round.state.balls,points,view,mode,rings);
       paintBubbleLegend(ctx,width,height);return;
