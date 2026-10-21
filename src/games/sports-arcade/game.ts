@@ -111,8 +111,13 @@ function hitMovingHand(r:SportRound,b:SportBall,points:Point[],w:number,h:number
 export function stepSportRound(r:SportRound,delta:number,w:number,h:number,
   points:Point[],speed=1,rand:()=>number=Math.random):{finished:boolean;events:GameEvent[]} {
   if(!r.playing||r.paused)return {finished:false,events:[]};
-  if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0||
-    !points.some(p=>partNames.includes(p.part))){
+  const hasPart=(part:BodyPart)=>points.some(p=>p.part===part);
+  const tracked=r.kind==="super-goalkeeper"
+    ?partNames.some(part=>hasPart(part))
+    :r.kind==="i-am-gravity"
+      ?hasPart("leftHand")&&hasPart("rightHand")
+      :handsOnly.some(part=>hasPart(part));
+  if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0||!tracked){
     r.hands={};r.moved={};r.touches.reset();return {finished:false,events:[]};
   }
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
