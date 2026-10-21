@@ -17,7 +17,7 @@ const tick=(r:ReturnType<typeof createExpertRound>,dt=.08,points:Point[]=both)=>
 const viewport={width:W,height:H,videoWidth:W,videoHeight:H,mirror:false};
 
 test("expert games register as five distinct available camera rounds",()=>{
-  assert.equal(GAMES.length,18);
+  assert.equal(GAMES.length,29);
   for(const id of EXPERT_GAME_IDS){
     const definition=GAMES.find(game=>game.id===id);
     assert.equal(definition?.status,"available");
