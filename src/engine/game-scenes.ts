@@ -2,7 +2,8 @@ import type {Landmark,Point,Viewport} from "../core";
 import type {DisplayMode} from "../settings/settings";
 import {paint} from "./renderer";
 import {fruitCameraBox,fruitCatchY} from "../games/fruit-catch/game";
-import {poseTarget,POSE_HOLD_SECONDS,type PoseName} from "../games/pose-challenge/game";
+import {poseTarget,POSE_HOLD_SECONDS,POSE_TARGET_SECONDS,type PoseName} from "../games/pose-challenge/game";
+import {BUBBLE_PART_RULES} from "../games/balloon-pop/game";
 import type {GameRound} from "../games/runtime";
 import {paintMiniScene} from "../games/mini-arcade/scene";
 import {paintAdvancedScene} from "../games/advanced-arcade/scene";
@@ -13,7 +14,8 @@ export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoEleme
   mode:DisplayMode,rings:boolean,width:number,height:number){
   switch(round.kind){
     case "balloon-pop":
-      paint(ctx,video,pose,round.state.balls,points,view,mode,rings);return;
+      paint(ctx,video,pose,round.state.balls,points,view,mode,rings);
+      paintBubbleLegend(ctx,width,height);return;
     case "fruit-catch":
       paintFruitScene(ctx,video,pose,points,view,round.state,mode,rings,width,height);return;
     case "pose-challenge":
@@ -29,6 +31,19 @@ export function paintGameScene(ctx:CanvasRenderingContext2D,video:HTMLVideoEleme
       paint(ctx,video,pose,[],points,view,mode,rings);
       paintExpertScene(ctx,round.state,width,height);return;
   }
+}
+function paintBubbleLegend(ctx:CanvasRenderingContext2D,w:number,h:number){
+  const gap=5,cell=Math.min(118,(w-24-gap*3)/4),start=(w-cell*4-gap*3)/2;
+  ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.font="bold "+Math.max(11,Math.min(15,cell*.14))+"px system-ui";
+  BUBBLE_PART_RULES.forEach((rule,i)=>{
+    const x=start+i*(cell+gap),y=h*.87;
+    ctx.fillStyle="rgba(4,20,39,.82)";ctx.strokeStyle=rule.color;ctx.lineWidth=2;
+    ctx.beginPath();ctx.roundRect(x,y,cell,37,10);ctx.fill();ctx.stroke();
+    ctx.fillStyle=rule.color;ctx.beginPath();ctx.arc(x+13,y+18,6,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="#fff";ctx.fillText(rule.label,x+cell*.59,y+19,cell-27);
+  });
+  ctx.restore();
 }
 type FruitState=Extract<GameRound,{kind:"fruit-catch"}>["state"];
 function paintFruitScene(ctx:CanvasRenderingContext2D,video:HTMLVideoElement,pose:Landmark[]|undefined,
@@ -87,11 +102,12 @@ function paintPoseGuide(ctx:CanvasRenderingContext2D,round:PoseState,width:numbe
   const gw=w*.56,gh=h*.65;
   drawGoalFigure(ctx,target.id,gw,gh);
   ctx.translate(-x-w*.22,-y-48);
-  const meter=Math.min(1,round.hold/POSE_HOLD_SECONDS);
+  const meter=Math.min(1,round.targetTime/POSE_TARGET_SECONDS);
   ctx.fillStyle="#29435a";ctx.fillRect(x+13,y+h-23,w-26,8);
-  ctx.fillStyle="#8ff7c7";ctx.fillRect(x+13,y+h-23,(w-26)*meter,8);
+  ctx.fillStyle=round.scored?"#8ff7c7":"#ffe492";
+  ctx.fillRect(x+13,y+h-23,(w-26)*meter,8);
   ctx.textAlign="right";ctx.font="bold 10px system-ui";ctx.fillStyle="#bbd7e5";
-  ctx.fillText(Math.max(0,Math.ceil(8-round.targetTime))+"s",x+w-11,y+h-33);
+  ctx.fillText(round.scored?"✓ PERFECT":"박자 "+Math.ceil((POSE_TARGET_SECONDS-round.targetTime)/.24),x+w-11,y+h-33);
   ctx.restore();
 }
 function drawGoalFigure(ctx:CanvasRenderingContext2D,pose:PoseName,w:number,h:number){
@@ -110,6 +126,7 @@ function drawGoalFigure(ctx:CanvasRenderingContext2D,pose:PoseName,w:number,h:nu
     case "t-pose":lArm=[.02,.34];rArm=[.98,.34];break;
     case "hands-hips":lArm=[.34,.62];rArm=[.66,.62];break;
     case "one-arm-up":lArm=[.17,.02];rArm=[.8,.76];break;
+    case "squat":lArm=[.28,.65];rArm=[.72,.65];lLeg=[.18,.74];rLeg=[.82,.74];break;
     case "star":lArm=[.03,.02];rArm=[.97,.02];lLeg=[.13,.98];rLeg=[.87,.98];break;
   }
   draw(lShoulder,lArm);draw(rShoulder,rArm);
