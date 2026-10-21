@@ -68,7 +68,7 @@ export const GAMES: readonly GameDefinition[] = [
   {id:"parcel-sort",title:"택배 분류",tagline:"잡아서 같은 색 상자로!",
    description:"손으로 택배를 집어 같은 색 배송함까지 움직여 놓으세요.",
    category:"move",status:"available",duration:"60초",bodyParts:"양손",
-   artwork:"fruit",emoji:"📦",feedback:{musicTheme:"fruit"}}
+   artwork:"fruit",emoji:"📦",feedback:{musicTheme:"fruit"}},
   {id:"boss-raid",title:"보스 레이드",tagline:"약점을 공격하고 위험을 피하라!",
    description:"보스의 황금 약점이 열릴 때 터치하고 예고된 붉은 공격은 피하는 페이즈형 배틀입니다.",
    category:"dodge",status:"available",duration:"60초",bodyParts:"양손",
