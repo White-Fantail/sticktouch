@@ -28,7 +28,7 @@ export function createBalloonRound(seconds=BALLOON_DURATION_SECONDS):BalloonRoun
 /** A game only reports semantic events; the platform owns scoring, SFX and effects. */
 export function stepBalloonRound(round:BalloonRound,delta:number,width:number,height:number,points:Point[],speed=1):
   {hits:number;finished:boolean;events:GameEvent[]} {
-  if(!round.playing || round.paused)return {hits:0,finished:false,events:[]};
+  if(!round.playing || round.paused){round.touches.reset();return {hits:0,finished:false,events:[]};}
   const dt=Math.max(0,Math.min(delta,0.08));
   round.time=Math.max(0,round.time-dt);
   round.spawning+=dt*speed;
