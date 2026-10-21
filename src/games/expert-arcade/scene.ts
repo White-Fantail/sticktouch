@@ -1,5 +1,5 @@
 import type {ExpertRound,Spot} from "./game";
-import {MAZE_WALLS,TRACE_PATTERNS,TRACE_DIRECTIONS,shadowTargets,portalTargets} from "./game";
+import {MAZE_WALLS,TRACE_PATTERNS,TRACE_DIRECTIONS,TRACE_PARTS,TRACE_PART_LABEL,shadowTargets,portalTargets} from "./game";
 
 const palette=["#79eedc","#ffdc86","#c5a4ff","#ff9aa2","#8dc9ff"];
 function circle(ctx:CanvasRenderingContext2D,p:Spot,w:number,h:number,r:number,fill:string,stroke="#fff"){
@@ -92,7 +92,7 @@ export function paintExpertScene(ctx:CanvasRenderingContext2D,r:ExpertRound,w:nu
       break;
     }
     case "constellation-trace":{
-      const t=r.trace,nodes=TRACE_PATTERNS[t.pattern];
+      const t=r.trace,nodes=TRACE_PATTERNS[t.pattern],parts=TRACE_PARTS[t.pattern];
       ctx.lineJoin="round";ctx.lineCap="round";
       ctx.strokeStyle="#c6f0ff77";ctx.lineWidth=4;
       ctx.setLineDash([6,10]);ctx.beginPath();
@@ -109,9 +109,11 @@ export function paintExpertScene(ctx:CanvasRenderingContext2D,r:ExpertRound,w:nu
           active?"#fff4cd":"#b6d2e0");
         ctx.shadowBlur=0;text(ctx,String(i+1),p.x*w,p.y*h,Math.max(15,s*.044),
           active?"#273746":"#ffffff");
+        text(ctx,TRACE_PART_LABEL[parts[i]],p.x*w,p.y*h+s*.099,
+          Math.max(11,s*.023),active?"#fff2a4":"#c2e8ed");
       });
-      caption(ctx,"🌌 별자리 그리기 · LEVEL "+t.level+" "+TRACE_DIRECTIONS[t.pattern],
-        "시작 방향이 바뀝니다! 편한 손으로 1번부터 이어 보세요",w,h);
+      caption(ctx,"🌌 별자리 제작자 · LEVEL "+t.level+" "+TRACE_DIRECTIONS[t.pattern],
+        "별 "+(t.index+1)+" · "+TRACE_PART_LABEL[parts[t.index]]+"으로 터치하세요",w,h);
       text(ctx,"진행 "+t.index+" / "+nodes.length,w*.5,h*.91,15,"#fff0b2");
       break;
     }
