@@ -89,7 +89,9 @@ test("programming records three real commands and executes grid movement",()=>{
   const controls=[{x:.31,y:.25},{x:.69,y:.76},{x:.69,y:.76}];
   for(const goal of controls){
     tick(r,hands(.08,.13,.93,.85));
+    console.log("quest-input-before",Array.from((r.touches as unknown as {entries:Map<string,unknown>}).entries.entries()).slice(0,6));
     tick(r,hands(goal.x,goal.y,.93,.85));
+    console.log("quest-input-after",Array.from((r.touches as unknown as {entries:Map<string,unknown>}).entries.entries()).slice(0,6));
     tick(r,hands(.07,.13,.94,.86));
     tick(r,hands(.07,.13,.94,.86));
     console.log("quest-program-debug",goal,r.stage,r.step,r.phase,r.instructions);
