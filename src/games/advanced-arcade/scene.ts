@@ -1,5 +1,6 @@
 import type {AdvancedRound} from "./game";
-import {BEAT_SPOTS,MEMORY_SPOTS,SORT_BINS,SORT_COLORS} from "./game";
+import {BEAT_SPOTS,BEAT_PARTS,SORT_BINS,SORT_COLORS} from "./game";
+import {POSE_SEQUENCE,type PoseName} from "../pose-challenge/game";
 
 const COLORS=["#64d7ff","#ffca72","#d3a7ff","#8cf0b4"];
 const scaleOf=(w:number,h:number)=>Math.min(w,h);
@@ -19,12 +20,33 @@ function small(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,color=
   ctx.font="bold 13px system-ui";ctx.fillStyle=color;ctx.textAlign="center";
   ctx.fillText(text,x,y);
 }
+function silhouette(ctx:CanvasRenderingContext2D,kind:PoseName,x:number,y:number,size:number){
+  const poses:{[K in PoseName]:{left:[number,number];right:[number,number];feet:[number,number][]}}={
+    "arms-up":{left:[-.4,-.9],right:[.4,-.9],feet:[[-.2,1],[.2,1]]},
+    "t-pose":{left:[-1,-.15],right:[1,-.15],feet:[[-.2,1],[.2,1]]},
+    "hands-hips":{left:[-.27,.35],right:[.27,.35],feet:[[-.2,1],[.2,1]]},
+    "one-arm-up":{left:[-.5,-.9],right:[.6,.45],feet:[[-.2,1],[.2,1]]},
+    "star":{left:[-.9,-.85],right:[.9,-.85],feet:[[-.75,1],[.75,1]]},
+    "squat":{left:[-.4,.3],right:[.4,.3],feet:[[-.7,.65],[.7,.65]]}
+  };
+  const p=poses[kind];
+  ctx.save();ctx.translate(x,y);ctx.scale(size,size);
+  ctx.strokeStyle="#a9ffe3";ctx.lineWidth=.085;ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(0,-.55,.20,0,Math.PI*2);ctx.stroke();
+  const line=(ax:number,ay:number,bx:number,by:number)=>{
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
+  };
+  line(0,-.33,0,.45);
+  line(-.19,-.21,...p.left);line(.19,-.21,...p.right);
+  for(const foot of p.feet)line(0,.45,...foot);
+  ctx.restore();
+}
 export function paintAdvancedScene(ctx:CanvasRenderingContext2D,round:AdvancedRound,w:number,h:number){
   const s=scaleOf(w,h);
   ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";
   switch(round.kind){
     case "rhythm-pads":{
-      caption(ctx,"🥁 박자에 맞춰 패드를 터치!",w,h);
+      caption(ctx,"🥁 바디 비트 · 손과 발 네 레인!",w,h);
       ctx.fillStyle="rgba(7,26,48,.36)";ctx.fillRect(w*.04,h*.23,w*.92,h*.62);
       ctx.strokeStyle="rgba(190,235,255,.25)";ctx.lineWidth=1;
       for(const x of BEAT_SPOTS){
@@ -35,22 +57,24 @@ export function paintAdvancedScene(ctx:CanvasRenderingContext2D,round:AdvancedRo
         ctx.shadowBlur=15;ctx.shadowColor=COLORS[i];
         disk(ctx,p.x*w,p.y*h,r,COLORS[i]+"88",COLORS[i],3);
         ctx.shadowBlur=0;
-        small(ctx,String(i+1),p.x*w,p.y*h,"#fff");
+        small(ctx,["왼손","오른손","왼발","오른발"][i],p.x*w,p.y*h,"#fff");
       }
       for(const note of round.notes){
-        const p=BEAT_SPOTS[note.lane],y=(.18+.58*note.age/1.24)*h;
+        const p=BEAT_SPOTS[note.lane],y=(.18+(p.y-.18)*note.age/1.24)*h;
         const ready=Math.abs(note.age-1.24)<.28;
         ctx.shadowBlur=ready?22:10;ctx.shadowColor=COLORS[note.lane];
         disk(ctx,p.x*w,y,s*.045,COLORS[note.lane],"#fff",2);
         ctx.shadowBlur=0;
       }
       ctx.strokeStyle="#f4f2b8";ctx.lineWidth=3;
-      ctx.beginPath();ctx.moveTo(w*.06,h*.76);ctx.lineTo(w*.94,h*.76);ctx.stroke();
-      small(ctx,"원 안에 노트가 닿는 순간, 손을 패드로!",w*.5,h*.91,"#e2ffec");
+      for(const spot of BEAT_SPOTS){
+        ctx.beginPath();ctx.moveTo(spot.x*w-s*.08,spot.y*h);ctx.lineTo(spot.x*w+s*.08,spot.y*h);ctx.stroke();
+      }
+      small(ctx,"위: 양손 · 아래: 양발 · 각 부위로 정확하게!",w*.5,h*.92,"#e2ffec");
       break;
     }
     case "shield-guard":{
-      caption(ctx,"🛡️ 중앙 코어를 지켜라!",w,h);
+      caption(ctx,"🛡️ 매직 실드 · 팔뚝 각도를 맞춰 반사!",w,h);
       const x=w*.5,y=h*.51;
       ctx.strokeStyle="rgba(99,245,230,.35)";ctx.lineWidth=2;
       for(const radius of [.19,.30]){
@@ -65,59 +89,65 @@ export function paintAdvancedScene(ctx:CanvasRenderingContext2D,round:AdvancedRo
         ctx.strokeStyle="rgba(255,154,128,.58)";ctx.lineWidth=Math.max(3,s*.012);
         ctx.beginPath();ctx.moveTo(bx-b.vx*w*.16,by-b.vy*h*.16);ctx.lineTo(bx,by);ctx.stroke();
         ctx.shadowBlur=12;ctx.shadowColor="#ffc28d";
-        disk(ctx,bx,by,s*.052,"#ff8b65","#ffebc7",2);
+        disk(ctx,bx,by,s*.052,b.reflected?"#78ffe2":"#ff8b65","#ffebc7",2);
         ctx.shadowBlur=0;
       }
-      small(ctx,"손으로 에너지 구슬을 막고 코어를 보호하세요",w*.5,h*.90,"#d3ffea");
+      for(const a of round.shieldArms){
+        ctx.save();ctx.translate(a.x*w,a.y*h);ctx.rotate(a.angle);
+        ctx.shadowColor="#78fbe5";ctx.shadowBlur=19;
+        ctx.strokeStyle="#8bf3ee";ctx.lineWidth=Math.max(8,s*.025);
+        ctx.lineCap="round";ctx.beginPath();ctx.moveTo(-s*.12,0);ctx.lineTo(s*.12,0);ctx.stroke();
+        ctx.restore();
+      }
+      small(ctx,"탄환의 진행 방향과 팔뚝을 직각으로 유지하세요",w*.5,h*.90,"#d3ffea");
       break;
     }
     case "memory-sequence":{
-      const phase=round.memoryPhase;
-      const label=phase==="watch"?"👀 깜빡이는 순서를 기억!":
-        phase==="input"?"🧠 본 순서대로 누르세요!":
-        round.memoryCorrect?"✨ 성공! 다음 단계":"🔄 다시 기억해 보세요";
-      caption(ctx,label,w,h);
-      MEMORY_SPOTS.forEach((spot,i)=>{
-        const r=s*.09,lit=round.memoryLit===i;
-        ctx.shadowColor=COLORS[i];ctx.shadowBlur=lit?34:8;
-        disk(ctx,spot.x*w,spot.y*h,r,lit?COLORS[i]:COLORS[i]+"88",
-          lit?"#fffad2":"#dce7f0",lit?6:2);
-        ctx.shadowBlur=0;
-        small(ctx,String(i+1),spot.x*w,spot.y*h,lit?"#163446":"#fff");
-      });
-      const progress=phase==="input"?round.memoryIndex:0;
-      small(ctx,"길이 "+round.sequence.length+" · 맞힌 순서 "+progress+
-        " / "+round.sequence.length,w*.5,h*.87,"#f9e9a2");
-      if(phase==="input"){
-        const meter=Math.max(0,1-round.phaseTime/5.5);
-        ctx.fillStyle="#25374c";ctx.fillRect(w*.23,h*.91,w*.54,7);
-        ctx.fillStyle="#90f0ce";ctx.fillRect(w*.23,h*.91,w*.54*meter,7);
+      const phase=round.memoryPhase,lit=round.memoryLit;
+      caption(ctx,phase==="watch"?"🧠 몸으로 암호 풀기 · 자세를 외우세요!":
+        phase==="input"?"🧠 암호 입력 · 본 자세를 순서대로 재현!":
+        round.memoryCorrect?"✨ 암호 해제!":"🔄 다음 암호 준비 중",w,h);
+      if(phase==="watch"&&lit>=0){
+        const pose=POSE_SEQUENCE[lit];
+        ctx.fillStyle="#092739bf";ctx.beginPath();
+        ctx.roundRect(w*.31,h*.28,w*.38,h*.45,16);ctx.fill();
+        silhouette(ctx,pose.id,w*.5,h*.53,s*.17);
+        small(ctx,pose.label,w*.5,h*.73,"#fdeda4");
+      }else if(phase==="input"){
+        silhouette(ctx,"arms-up",w*.5,h*.53,s*.14);
+        small(ctx,"기억한 자세를 0.4초 유지하세요",w*.5,h*.73,"#b7fff0");
       }
+      const count=round.sequence.length,unit=Math.min(w*.14,55);
+      for(let i=0;i<count;i++){
+        const x=w*.5+(i-(count-1)/2)*(unit+5);
+        disk(ctx,x,h*.83,unit*.40,i<round.memoryIndex?"#4abf9e":"#283e5b",
+          i===round.memoryIndex&&phase==="input"?"#fff4a8":"#8dabbd",2);
+        small(ctx,i<round.memoryIndex?"✓":String(i+1),x,h*.83,"#fff");
+      }
+      small(ctx,phase==="watch"?"표시된 전신 동작을 기억하세요":
+        "진행 "+round.memoryIndex+" / "+count,w*.5,h*.93,"#f9e9a2");
       break;
     }
     case "laser-lane":{
-      caption(ctx,"⚡ 레이저 사이의 안전 통로로!",w,h);
       const beam=round.laser;
+      caption(ctx,"⚡ 레이저 탈출 · 몸 전체로 피하세요!",w,h);
       if(beam){
         const active=beam.age>=.8;
-        const y=active?(.16+Math.min(1,(beam.age-.8)/2.35)*.69)*h:h*.16;
-        const left=(beam.gap-.155)*w,right=(beam.gap+.155)*w;
-        ctx.fillStyle=active?"rgba(253,91,116,.12)":"rgba(255,192,96,.12)";
-        ctx.fillRect(0,y-12,left,24);ctx.fillRect(right,y-12,w-right,24);
-        ctx.strokeStyle=active?"#ff5f82":"#ffc47b";
-        ctx.shadowColor=active?"#ff456a":"#ffcf89";
-        ctx.shadowBlur=active?20:7;
-        ctx.lineWidth=active?Math.max(10,s*.026):4;
-        ctx.setLineDash(active?[]:[13,9]);
-        ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(left,y);
-        ctx.moveTo(right,y);ctx.lineTo(w,y);ctx.stroke();
-        ctx.setLineDash([]);ctx.shadowBlur=0;
-        ctx.strokeStyle="#91f8ce";ctx.lineWidth=3;
-        ctx.beginPath();ctx.moveTo(left,y-10);ctx.lineTo(left,y+10);
-        ctx.moveTo(right,y-10);ctx.lineTo(right,y+10);ctx.stroke();
-        if(!active)small(ctx,"곧 내려옵니다! 안전한 틈으로 이동",w*.5,h*.88,"#ffe4ae");
-        else small(ctx,beam.damaged?"앗! 다음 레이저를 피하세요":"손을 초록색 틈 안으로!",w*.5,h*.91,"#dcffe9");
-      }else small(ctx,"다음 레이저 준비 중",w*.5,h*.88,"#d9ffe9");
+        const vertical=beam.mode!=="high";
+        const x=beam.gap*w,y=h*.35;
+        ctx.strokeStyle=active?"#ff527f":"#ffd084";
+        ctx.lineWidth=active?Math.max(11,s*.034):4;
+        ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=active?22:8;
+        ctx.setLineDash(active?[]:[13,8]);
+        ctx.beginPath();
+        if(vertical){ctx.moveTo(x,h*.13);ctx.lineTo(x,h*.91);}
+        else{ctx.moveTo(0,y);ctx.lineTo(w,y);}
+        ctx.stroke();ctx.setLineDash([]);ctx.shadowBlur=0;
+        small(ctx,beam.damaged?"충돌! 다음 레이저에서 재도전":
+          vertical?(beam.gap<.5?"몸을 오른쪽으로 기울이세요":"몸을 왼쪽으로 기울이세요"):
+          "무릎을 굽혀 레이저 아래로 숙이세요",
+          w*.5,h*.88,active?"#d9ffeb":"#ffe4a6");
+      }else small(ctx,"다음 레이저 방향을 확인하세요",w*.5,h*.88,"#d9ffe9");
       break;
     }
     case "parcel-sort":{
