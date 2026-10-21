@@ -1,4 +1,4 @@
-import {circlesOverlap,type Point} from "../../core.ts";
+import {circlesOverlap,type Point,type BodyPart} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
@@ -13,16 +13,31 @@ export const MAZE_WALLS=[
   {x:.70,y:.13,w:.045,h:.31}
 ] as const;
 /** Eight distinct travel directions; each pattern keeps five well-separated targets. */
+/** Every chart combines easy-to-reach foot, hand and head targets.
+ * Eight different travel directions alternate sides and vertical order. */
 export const TRACE_PATTERNS:readonly (readonly Spot[])[]=[
-  [{x:.18,y:.67},{x:.36,y:.32},{x:.53,y:.64},{x:.72,y:.31},{x:.83,y:.69}], // →
-  [{x:.82,y:.67},{x:.64,y:.32},{x:.47,y:.64},{x:.28,y:.31},{x:.17,y:.69}], // ←
-  [{x:.52,y:.79},{x:.29,y:.62},{x:.70,y:.51},{x:.30,y:.39},{x:.52,y:.22}], // ↑
-  [{x:.52,y:.22},{x:.72,y:.38},{x:.30,y:.50},{x:.72,y:.63},{x:.52,y:.79}], // ↓
-  [{x:.79,y:.77},{x:.74,y:.52},{x:.52,y:.61},{x:.37,y:.34},{x:.19,y:.24}], // ↖
-  [{x:.20,y:.77},{x:.27,y:.49},{x:.50,y:.59},{x:.65,y:.30},{x:.81,y:.24}], // ↗
-  [{x:.80,y:.25},{x:.66,y:.50},{x:.51,y:.36},{x:.35,y:.68},{x:.19,y:.78}], // ↙
-  [{x:.19,y:.24},{x:.35,y:.52},{x:.52,y:.36},{x:.67,y:.66},{x:.81,y:.78}]  // ↘
+  [{x:.19,y:.82},{x:.34,y:.53},{x:.50,y:.24},{x:.68,y:.53},{x:.81,y:.82}],
+  [{x:.81,y:.82},{x:.68,y:.53},{x:.50,y:.24},{x:.34,y:.53},{x:.19,y:.82}],
+  [{x:.24,y:.82},{x:.76,y:.82},{x:.30,y:.52},{x:.70,y:.52},{x:.50,y:.24}],
+  [{x:.50,y:.24},{x:.70,y:.52},{x:.30,y:.52},{x:.76,y:.82},{x:.24,y:.82}],
+  [{x:.78,y:.82},{x:.68,y:.54},{x:.49,y:.25},{x:.31,y:.54},{x:.22,y:.82}],
+  [{x:.22,y:.82},{x:.31,y:.54},{x:.49,y:.25},{x:.68,y:.54},{x:.78,y:.82}],
+  [{x:.50,y:.24},{x:.30,y:.52},{x:.21,y:.82},{x:.69,y:.52},{x:.79,y:.82}],
+  [{x:.21,y:.82},{x:.69,y:.52},{x:.79,y:.82},{x:.30,y:.52},{x:.50,y:.24}]
 ];
+export const TRACE_PARTS:readonly (readonly BodyPart[])[]=[
+  ["leftFoot","leftHand","head","rightHand","rightFoot"],
+  ["rightFoot","rightHand","head","leftHand","leftFoot"],
+  ["leftFoot","rightFoot","leftHand","rightHand","head"],
+  ["head","rightHand","leftHand","rightFoot","leftFoot"],
+  ["rightFoot","rightHand","head","leftHand","leftFoot"],
+  ["leftFoot","leftHand","head","rightHand","rightFoot"],
+  ["head","leftHand","leftFoot","rightHand","rightFoot"],
+  ["leftFoot","rightHand","rightFoot","leftHand","head"]
+];
+export const TRACE_PART_LABEL:Record<BodyPart,string>={
+  leftHand:"왼손",rightHand:"오른손",leftFoot:"왼발",rightFoot:"오른발",head:"머리"
+};
 export const TRACE_DIRECTIONS=["→","←","↑","↓","↖","↗","↙","↘"] as const;
 type BossState={health:number;stage:number;age:number;weak:Spot;hit:boolean;touching:boolean;danger:boolean;attackSide:number};
 type MazeState={ball:Spot;vx:number;vy:number;level:number;cooldown:number;hazardTime:number;
@@ -178,27 +193,26 @@ function shadowStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   }
 }
 
-function traceStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
+function traceStep(r:ExpertRound,dt:number,points:Point[],w:number,h:number,
   events:GameEvent[]){
-  const s=r.trace;const pattern=TRACE_PATTERNS[s.pattern];
-  s.age+=dt;
-  if(s.age>8){
-    if(s.index>0)events.push(event(r,"trace-timeout","miss",pattern[s.index-1],w,h));
-    s.index=0;s.owner=null;s.age=0;s.pattern=(s.pattern+1)%TRACE_PATTERNS.length;return;
+  const state=r.trace,pattern=TRACE_PATTERNS[state.pattern],parts=TRACE_PARTS[state.pattern];
+  state.age+=dt;
+  if(state.age>9){
+    if(state.index>0)events.push(event(r,"trace-timeout","miss",pattern[state.index-1],w,h));
+    state.index=0;state.owner=null;state.age=0;
+    state.pattern=(state.pattern+1)%TRACE_PATTERNS.length;return;
   }
-  const spot=pattern[s.index];
-  const hand=hands.find(p=>(!s.owner||p.part===s.owner)&&within(p,spot,.080,w,h));
-  if(!hand)return;
-  if(s.index===0)s.owner=hand.part;
-  events.push(event(r,"trace-node","good",spot,w,h,12,hand.part));
-  s.index++;
-  if(s.index===pattern.length){
-    events.push(event(r,"trace-clear","bonus",spot,w,h,48,hand.part));
-    s.index=0;s.owner=null;s.age=0;s.level++;
-    s.pattern=(s.pattern+1)%TRACE_PATTERNS.length;
+  const index=state.index,spot=pattern[index],part=parts[index];
+  const found=points.find(p=>p.part===part&&within(p,spot,.077,w,h));
+  if(!found)return;
+  events.push(event(r,"trace-node","good",spot,w,h,14,part));
+  state.index++;
+  if(state.index===pattern.length){
+    events.push(event(r,"trace-clear","bonus",spot,w,h,55,part));
+    state.index=0;state.owner=null;state.age=0;state.level++;
+    state.pattern=(state.pattern+1)%TRACE_PATTERNS.length;
   }
 }
-
 export function portalTargets(age:number,stage:number):readonly [Spot,Spot]{
   return [
     {x:.24+.065*Math.sin(age*1.25+stage),y:.45+.14*Math.cos(age*.9+stage)},
@@ -235,7 +249,7 @@ export function stepExpertRound(r:ExpertRound,delta:number,w:number,h:number,poi
   if(!r.playing||r.paused)return {finished:false,events:[]};
   const hands=palms(points);
   const needsTwo=r.kind==="gravity-lab"||r.kind==="shadow-sync"||r.kind==="dual-portals";
-  if(hands.length<(needsTwo?2:1)||!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)
+  if((r.kind==="constellation-trace"?points.length===0:hands.length<(needsTwo?2:1))||!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0)
     return {finished:false,events:[]};
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   r.time=Math.max(0,r.time-dt);
@@ -245,7 +259,7 @@ export function stepExpertRound(r:ExpertRound,delta:number,w:number,h:number,poi
     case "boss-raid":bossStep(r,simDt,hands,w,h,rand,events);break;
     case "gravity-lab":mazeStep(r,simDt,hands,w,h,events);break;
     case "shadow-sync":shadowStep(r,simDt,hands,w,h,events);break;
-    case "constellation-trace":traceStep(r,simDt,hands,w,h,events);break;
+    case "constellation-trace":traceStep(r,simDt,points,w,h,events);break;
     case "dual-portals":portalStep(r,simDt,hands,w,h,events);break;
   }
   if(r.time<=0)r.playing=false;
