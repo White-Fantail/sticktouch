@@ -6,7 +6,7 @@ import {TouchEntries,touchCircle} from "../../engine/touch-entry.ts";
 export type MiniGameId="mole-whack"|"color-match"|"star-hunt"|"meteor-dodge"|"freeze-dance";
 export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number;large?:boolean;leftCharged?:string;rightCharged?:string};
 export type MiniRound={
-  kind:MiniGameId;playing:boolean;paused:boolean;score:number;time:number;
+  kind:MiniGameId;playing:boolean;paused:boolean;score:number;time:number;duration:number;
   seq:number;slot:number;lockedSlot:number;phaseTime:number;wait:number;
   items:MiniItem[];green:boolean;redTravel:number;danceDistance:number;
   redPenalty:boolean;lastHand:{part:string;x:number;y:number}|null;
@@ -26,7 +26,7 @@ export const COLOR_SPOTS:readonly {x:number;y:number}[]=[
 export const COLOR_NAMES=["빨강","파랑","노랑"] as const;
 export const COLOR_HEX=["#ff696e","#58b7ff","#ffe071"] as const;
 export function createMiniRound(kind:MiniGameId,seconds=ROUND_DURATION_SECONDS):MiniRound {
-  return {kind,playing:false,paused:false,score:0,time:seconds,
+  return {kind,playing:false,paused:false,score:0,time:seconds,duration:seconds,
     seq:0,slot:-1,lockedSlot:-1,phaseTime:0,wait:0,items:[],
     green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null,previousBody:{},
     touches:new TouchEntries()};
@@ -130,7 +130,7 @@ function stepStar(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
 function stepMeteor(round:MiniRound,dt:number,points:Point[],width:number,height:number,
   rand:()=>number,events:GameEvent[]){
   round.phaseTime+=dt;
-  if(round.phaseTime>=Math.max(.52,1.02-(ROUND_DURATION_SECONDS-round.time)*.006)){
+  if(round.phaseTime>=Math.max(.52,1.02-(round.duration-round.time)*.006)){
     round.phaseTime=0;
     const fromLeft=rand()<.5,speed=.25+rand()*.14,large=rand()<.32;
     round.items.push({id:++round.seq,x:fromLeft?-.13:1.13,y:.27+rand()*.49,

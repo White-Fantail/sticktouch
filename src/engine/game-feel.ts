@@ -39,7 +39,7 @@ export class GameFeelSession {
   private missCount=0;
   private readonly profile:GameFeelProfile;
   constructor(profile:GameFeelProfile=DEFAULT_FEEL_PROFILE) {this.profile=profile;}
-  dispatch(event:GameEvent):GameFeedback|null {
+  dispatch(event:GameEvent,roundMultiplier=1):GameFeedback|null {
     if(!event.id || this.ids.has(event.id))return null;
     const success=successTypes.includes(event.type);
     if(success && event.targetId && this.targets.has(event.targetId))return null;
@@ -51,9 +51,9 @@ export class GameFeelSession {
       this.peakCombo=Math.max(this.peakCombo,this.currentCombo);
       this.hitCount++;
       milestone=this.profile.comboTiers.some(t=>t.at>1&&t.at===this.currentCombo);
-      points=Math.round(positiveNumber(event.basePoints,this.profile.basePoints)*comboMultiplier(this.currentCombo,this.profile));
+      points=Math.round(positiveNumber(event.basePoints,this.profile.basePoints)*comboMultiplier(this.currentCombo,this.profile)*positiveNumber(roundMultiplier,1));
     }else if(event.type==="bonus"){
-      points=Math.round(positiveNumber(event.basePoints,this.profile.basePoints));
+      points=Math.round(positiveNumber(event.basePoints,this.profile.basePoints)*positiveNumber(roundMultiplier,1));
     }else{
       this.missCount++;
       this.currentCombo=0;

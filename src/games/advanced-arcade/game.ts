@@ -22,7 +22,7 @@ export type Laser={id:number;gap:number;age:number;damaged:boolean;mode?:"high"|
 export type Parcel={id:number;kind:number;x:number;y:number;age:number;heldBy:string|null;armed:boolean};
 type MemoryPhase="watch"|"input"|"rest";
 export type AdvancedRound={
-  kind:AdvancedGameId;playing:boolean;paused:boolean;score:number;time:number;seq:number;
+  kind:AdvancedGameId;playing:boolean;paused:boolean;score:number;time:number;duration:number;seq:number;
   phaseTime:number;spawnTime:number;wait:number;
   notes:Note[];bolts:Bolt[];
   sequence:number[];memoryPhase:MemoryPhase;memoryIndex:number;memoryLit:number;memoryCorrect:boolean;
@@ -41,7 +41,7 @@ const touch=(p:Point,at:{x:number;y:number},radius:number,w:number,h:number)=>
   circlesOverlap(p,{...position(at.x,at.y,w,h),radius:radius*Math.min(w,h)});
 
 export function createAdvancedRound(kind:AdvancedGameId,seconds=ROUND_DURATION_SECONDS):AdvancedRound{
-  return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
+  return {kind,playing:false,paused:false,score:0,time:seconds,duration:seconds,seq:0,
     phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
     memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
     previousPads:{},poseHold:0,wrongHold:0,poseArmed:false,shieldArms:[],laser:null,parcel:null,
@@ -121,7 +121,7 @@ function stepShield(round:AdvancedRound,dt:number,points:Point[],w:number,h:numb
   round.shieldArms=arms.map(arm=>({x:(arm.a.x+arm.b.x)/2/w,
     y:(arm.a.y+arm.b.y)/2/h,angle:arm.angle}));
   round.spawnTime+=dt;
-  const interval=Math.max(.67,1.12-(ROUND_DURATION_SECONDS-round.time)*.006);
+  const interval=Math.max(.67,1.12-(round.duration-round.time)*.006);
   while(round.spawnTime>=interval){round.spawnTime-=interval;spawnBolt(round,rand);}
   const remaining:Bolt[]=[];
   for(const bolt of round.bolts){

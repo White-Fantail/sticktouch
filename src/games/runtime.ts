@@ -1,5 +1,5 @@
 import {coverRect,type Landmark,type Point,type Viewport} from "../core.ts";
-import {ROUND_DURATION_SECONDS,gameplaySpeed} from "../engine/round-tempo.ts";
+import {ROUND_DURATION_SECONDS,gameplaySpeed,type RoundDuration} from "../engine/round-tempo.ts";
 import type {GameEvent} from "../engine/game-feel";
 import {createBalloonRound,stepBalloonRound,type BalloonRound} from "./balloon-pop/game.ts";
 import {createFruitRound,fruitCameraBox,stepFruitRound,type FruitRound} from "./fruit-catch/game.ts";
@@ -17,17 +17,17 @@ export type GameRound =
   | {kind:ExpertGameId;state:ExpertRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
-export function createGameRound(id:string):GameRound {
+export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS):GameRound {
   switch(id){
-    case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound()};
-    case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound()};
+    case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound(seconds)};
+    case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound(seconds)};
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
-      return {kind:id,state:createMiniRound(id)};
+      return {kind:id,state:createMiniRound(id,seconds)};
     case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
-      return {kind:id,state:createAdvancedRound(id)};
+      return {kind:id,state:createAdvancedRound(id,seconds)};
     case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
-      return {kind:id,state:createExpertRound(id)};
-    default:return {kind:"balloon-pop",state:createBalloonRound()};
+      return {kind:id,state:createExpertRound(id,seconds)};
+    default:return {kind:"balloon-pop",state:createBalloonRound(seconds)};
   }
 }
 export function gameViewport(id:string,width:number,height:number,videoWidth:number,videoHeight:number,mirror:boolean):Viewport {

@@ -58,3 +58,13 @@ test("invalid score values never allow negative or non-finite points",()=>{
   assert.equal(game.dispatch({id:"b",type:"hit",basePoints:Infinity})?.points,10);
   assert.equal(game.stats.score,10);
 });
+
+test("fever doubles hits and bonuses after combo but never multiplies misses",()=>{
+  const game=new GameFeelSession();
+  assert.equal(game.dispatch({id:"hit:normal",type:"hit",basePoints:14},1)?.points,14);
+  assert.equal(game.dispatch({id:"hit:fever",type:"hit",basePoints:14},2)?.points,28);
+  assert.equal(game.dispatch({id:"bonus:fever",type:"bonus",basePoints:9},2)?.points,18);
+  assert.equal(game.dispatch({id:"miss:fever",type:"miss"},2)?.points,0);
+  assert.equal(game.stats.score,60);
+  assert.equal(game.stats.successes,2);
+});

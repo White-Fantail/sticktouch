@@ -3,7 +3,7 @@ import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type Fruit = {id:number; x:number; y:number; radius:number; speed:number; kind:"apple"|"orange"|"berry"|"bomb"};
 export type FruitRound = {
-  playing:boolean; paused:boolean; score:number; time:number;
+  playing:boolean; paused:boolean; score:number; time:number; duration:number;
   spawning:number; seq:number; fruits:Fruit[]; basketX:number; hasControl:boolean;
 };
 export const FRUIT_DURATION_SECONDS=ROUND_DURATION_SECONDS;
@@ -16,7 +16,7 @@ export function fruitCameraBox(width:number,height:number) {
 }
 export function fruitCatchY(height:number) {return height*0.67;}
 export function createFruitRound(seconds=FRUIT_DURATION_SECONDS):FruitRound {
-  return {playing:false,paused:false,score:0,time:seconds,spawning:0.72,seq:0,
+  return {playing:false,paused:false,score:0,time:seconds,duration:seconds,spawning:0.72,seq:0,
     fruits:[],basketX:0,hasControl:false};
 }
 /** inputX is the normalized horizontal position of one or both tracked palms.
@@ -32,15 +32,15 @@ export function stepFruitRound(round:FruitRound,delta:number,width:number,height
   round.basketX=Math.max(basketRadius,Math.min(width-basketRadius,(inputX as number)*width));
   round.time=Math.max(0,round.time-dt);
   round.spawning+=dt*speed;
-  const interval=Math.max(0.68,1.15-(ROUND_DURATION_SECONDS-round.time)*0.004);
+  const interval=Math.max(0.68,1.15-(round.duration-round.time)*0.004);
   if(round.spawning>=interval&&round.time>0) {
     round.spawning-=interval;
     const radius=Math.max(12,Math.min(25,width*0.035));
     const raw=rand();
-    const kind:Fruit["kind"]=round.time<ROUND_DURATION_SECONDS*.75&&raw<0.17?"bomb":raw<0.44?"apple":raw<0.73?"orange":"berry";
+    const kind:Fruit["kind"]=round.time<round.duration*.75&&raw<0.17?"bomb":raw<0.44?"apple":raw<0.73?"orange":"berry";
     round.fruits.push({id:++round.seq,kind,
       x:radius+rand()*Math.max(0,width-2*radius),y:-radius,
-      radius,speed:Math.max(105,height*0.32)+(ROUND_DURATION_SECONDS-round.time)*0.75+rand()*25});
+      radius,speed:Math.max(105,height*0.32)+(round.duration-round.time)*0.75+rand()*25});
   }
   const events:GameEvent[]=[];
   const rest:Fruit[]=[];
