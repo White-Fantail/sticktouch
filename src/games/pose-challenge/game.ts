@@ -74,10 +74,10 @@ export function matchesPose(pose:readonly Landmark[]|undefined,kind:PoseName):bo
 }
 export function stepPoseRound(round:PoseRound,delta:number,pose:readonly Landmark[]|undefined,
   width:number,height:number,speed=1):{finished:boolean;events:GameEvent[]} {
-  if(!round.playing||round.paused)return {finished:false,events:[]};
+  if(!round.playing||round.paused){round.armed=false;return {finished:false,events:[]};}
   const match=matchesPose(pose,poseTarget(round).id);
   round.tracking=match!==null;
-  if(match===null)return {finished:false,events:[]};
+  if(match===null){round.armed=false;round.hold=0;return {finished:false,events:[]};}
   const dt=Math.max(0,Math.min(0.08,delta));
   round.time=Math.max(0,round.time-dt);
   round.targetTime+=dt*speed;
