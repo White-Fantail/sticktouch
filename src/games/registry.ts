@@ -1,7 +1,7 @@
 import type {GameFeelProfile} from "../engine/game-feel";
 import type {RoundDuration} from "../engine/round-tempo";
 import type {MusicTheme} from "../engine/audio";
-export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move";
+export type GameCategory = "touch" | "catch" | "pose" | "dodge" | "move" | "physics";
 export type GameStatus = "available" | "coming-soon";
 export interface GameDefinition {
   id: string;
@@ -121,6 +121,30 @@ export const GAMES: readonly GameDefinition[] = [
   {id:"perfect-symmetry",title:"완벽한 대칭",tagline:"왼팔과 오른팔을 거울처럼!",
    description:"양팔을 좌우 대칭으로 움직여 높이와 각도를 맞춘 채 유지하세요.",category:"pose",status:"available",recommendedSeconds:60,
    bodyParts:"양팔",artwork:"pose",emoji:"🪞",feedback:{musicTheme:"rhythm"}},
+  {id:"super-goalkeeper",title:"슈퍼 골키퍼",tagline:"날아오는 슛을 손발로 막아라!",
+   description:"공의 궤적을 보고 실제 손발을 움직여 골문을 지켜요. 가만히 서 있으면 세이브가 되지 않아요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"손 · 발",
+   artwork:"meteor",emoji:"🥅",feedback:{musicTheme:"pop"}},
+  {id:"air-pingpong",title:"에어 핑퐁",tagline:"손바닥 라켓으로 랠리!",
+   description:"손바닥을 휘둘러 공을 반사하고 방향과 속도를 조절해 연속 랠리에 도전하세요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
+   artwork:"star",emoji:"🏓",feedback:{musicTheme:"rhythm"}},
+  {id:"motion-bowling",title:"모션 볼링",tagline:"팔 스윙으로 볼링공 굴리기!",
+   description:"손을 아래에서 위로 스윙해 공을 발사하고 물리 충돌로 열 개의 핀을 쓰러뜨려요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
+   artwork:"fruit",emoji:"🎳",feedback:{musicTheme:"pop"}},
+  {id:"zero-g-basketball",title:"무중력 농구",tagline:"약한 중력 속에서 슛!",
+   description:"손의 스윙 방향과 속도로 슛을 던져 낮은 중력 아래 골대에 공을 넣어 보세요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
+   artwork:"star",emoji:"🏀",feedback:{musicTheme:"fruit"}},
+  {id:"fishing-master",title:"피싱 마스터",tagline:"캐스팅하고 손으로 릴링!",
+   description:"팔을 휘둘러 낚싯바늘을 던지고 물고기가 물면 손을 위로 당겨 낚아 올리세요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
+   artwork:"fruit",emoji:"🎣",feedback:{musicTheme:"fruit"}},
+  {id:"i-am-gravity",title:"내가 중력이다",tagline:"왼손은 당기고 오른손은 밀기!",
+   description:"손을 움직이며 인력과 척력을 가해 행성들을 중력 포털로 유도하세요.",
+   category:"physics",status:"available",recommendedSeconds:60,bodyParts:"양손",
+   artwork:"star",emoji:"🪐",feedback:{musicTheme:"rhythm"}},
   {id:"intruder-alarm",title:"침입자 경보",tagline:"발로 누르고 손으로 잠금 해제!",
    description:"지정된 발로 바닥 압력판을 유지하면서 반대쪽 손으로 잠금장치를 해제하세요.",category:"move",status:"available",recommendedSeconds:60,
    bodyParts:"손 · 발",artwork:"pose",emoji:"🚨",feedback:{musicTheme:"pop"}}
@@ -129,5 +153,5 @@ export function getGame(id: string): GameDefinition | undefined {
   return GAMES.find(game => game.id === id);
 }
 export const CATEGORY_LABELS: Record<GameCategory, string> = {
-  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기"
+  touch:"터치", catch:"받기", pose:"리듬 / 포즈", dodge:"회피", move:"움직이기", physics:"스포츠·물리"
 };
