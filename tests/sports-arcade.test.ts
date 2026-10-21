@@ -121,7 +121,7 @@ test("fishing demands a cast, a fish bite, then an upward reel",()=>{
   Object.assign(r.hook!,{x:.55,y:.73,vx:0,vy:0});
   tick(r,[palm(.55,.48)]);
   assert.equal(r.hooked,fish.id);
-  r.hook!.y=.578;fish.y=.578;
+  Object.assign(r.hook!,{y:.578});fish.y=.578;
   tick(r,[palm(.54,.62)]);
   const landed=tick(r,[palm(.54,.42)]);
   assert.deepEqual(landed.events.map(e=>e.type),["collect"]);
