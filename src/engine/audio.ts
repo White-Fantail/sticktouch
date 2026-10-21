@@ -1,4 +1,4 @@
-import type {GameEventType} from "./game-feel";
+import type {GameEventType,GameEvent} from "./game-feel";
 
 export type AudioPreferences = {
   musicEnabled: boolean; sfxEnabled: boolean; musicVolume: number; sfxVolume: number;
@@ -132,6 +132,38 @@ export class AudioManager {
     if(!ctx)return;
     void ctx.resume().catch(()=>{});
     this.cue("hit",true);
+  }
+  /** Instrument synthesis uses the same unlocked, pause-aware SFX bus.
+   * No microphone input, audio recordings or third-party samples. */
+  cueCreative(event:Pick<GameEvent,"instrument"|"pitch">):boolean{
+    if(!event.instrument||!Number.isFinite(event.pitch))return false;
+    const ctx=this.context;
+    if(!ctx||ctx.state==="closed"||this.mutedByPause||
+      !this.prefs.sfxEnabled||this.prefs.sfxVolume<=0)return true;
+    const t=ctx.currentTime+.012,f=Math.max(65,Math.min(1600,event.pitch!));
+    switch(event.instrument){
+      case "drum":
+        this.tone(f,t,.11,f>600?"sawtooth":"triangle",this.fxGain,.30);
+        this.tone(Math.max(70,f*.50),t+.01,.15,"sine",this.fxGain,.24);
+        break;
+      case "keys":
+        this.tone(f,t,.22,"triangle",this.fxGain,.30);
+        this.tone(f*2,t+.015,.14,"sine",this.fxGain,.12);
+        break;
+      case "strings":
+        this.tone(f,t,.32,"triangle",this.fxGain,.23);
+        this.tone(f*1.5,t+.025,.26,"sine",this.fxGain,.14);
+        break;
+      case "brass":
+        this.tone(f,t,.22,"sawtooth",this.fxGain,.17);
+        this.tone(f*2,t+.035,.19,"triangle",this.fxGain,.12);
+        break;
+      case "paint":
+        this.tone(f,t,.15,"sine",this.fxGain,.26);
+        this.tone(f*1.25,t+.05,.20,"triangle",this.fxGain,.15);
+        break;
+    }
+    return true;
   }
   cue(type:GameEventType|"milestone"|"start"|"finish"|"countdown",preview=false){
     const ctx=this.context;
