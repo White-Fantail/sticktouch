@@ -60,9 +60,10 @@ test("body beat uses four distinct limbs and ignores the wrong limb",()=>{
   const r=createAdvancedRound("rhythm-pads",10);r.playing=true;
   assert.deepEqual(BEAT_PARTS,["leftHand","rightHand","leftFoot","rightFoot"]);
   for(let lane=0;lane<4;lane++){
-    r.notes=[{id:lane+1,lane,age:1.20}];r.previousPads={};
+    r.notes=[{id:lane+1,lane,age:1.20}];r.previousPads={};r.touches.reset();
     const wrong=at(BEAT_SPOTS[lane],BEAT_PARTS[(lane+1)%4]);
-    assert.equal(step(r,.02,[wrong]).events.length,0);
+    const ready=point(BEAT_PARTS[lane],.05,.94);
+    assert.equal(step(r,.02,[wrong,ready]).events.length,0);
     const correct=at(BEAT_SPOTS[lane],BEAT_PARTS[lane]);
     assert.equal(step(r,.02,[correct]).events.filter(e=>e.type==="perfect").length,1);
     assert.equal(step(r,.02,[correct]).events.length,0);
@@ -96,6 +97,7 @@ test("body cipher previews poses and requires a new sustained pose for repeated 
   assert.equal(r.memoryPhase,"input");
   assert.deepEqual(r.sequence,[0,0]);
   let events=[] as ReturnType<typeof step>["events"];
+  step(r,.08,away(),bodyPose("hands-hips")); // disarm initial held pose
   for(let i=0;i<5;i++)events.push(...step(r,.08,away(),bodyPose()).events);
   assert.deepEqual(events.map(e=>e.type),["good"]);
   assert.equal(step(r,.08,away(),bodyPose()).events.length,0);
