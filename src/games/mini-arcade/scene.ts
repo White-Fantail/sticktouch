@@ -68,18 +68,24 @@ export function paintMiniScene(ctx:CanvasRenderingContext2D,round:MiniRound,widt
       break;
     }
     case "meteor-dodge":{
-      title(ctx,"☄️ 날아오는 운석을 피하세요!",width,height);
+      title(ctx,"☄️ 운석 소나기 · 피하거나 손으로 파괴!",width,height);
       for(const meteor of round.items){
         const x=meteor.x*width,y=meteor.y*height,r=meteor.radius*scale;
         ctx.strokeStyle="rgba(255,132,105,.45)";ctx.lineWidth=r*.65;
         ctx.lineCap="round";ctx.beginPath();
         ctx.moveTo(x-meteor.vx*width*.20,y);ctx.lineTo(x,y);ctx.stroke();
         ctx.shadowColor="#ff9856";ctx.shadowBlur=16;
-        circle(ctx,x,y,r,"#ad5642","#ffe0a0");ctx.shadowBlur=0;
+        circle(ctx,x,y,r,meteor.large?"#923c64":"#ad5642","#ffe0a0");ctx.shadowBlur=0;
+        if(meteor.large){
+          ctx.strokeStyle="#9bf9dd";ctx.lineWidth=3;ctx.setLineDash([5,5]);
+          circle(ctx,x-width*.055,y,r*.48,"rgba(24,60,70,.5)","#9bf9dd");
+          circle(ctx,x+width*.055,y,r*.48,"rgba(24,60,70,.5)","#9bf9dd");
+          ctx.setLineDash([]);
+        }
         ctx.fillStyle="#f9aa6a";ctx.beginPath();ctx.arc(x-r*.2,y-r*.1,r*.3,0,Math.PI*2);ctx.fill();
       }
       ctx.font="bold 14px system-ui";ctx.fillStyle="#c9f6e1";
-      ctx.fillText("손을 움직여 충돌을 피하면 점수!",width/2,height*.90);
+      ctx.fillText("작은 운석=한 손 · 큰 운석=양손 양옆 동시 공격",width/2,height*.90);
       break;
     }
     case "freeze-dance":{
@@ -92,15 +98,17 @@ export function paintMiniScene(ctx:CanvasRenderingContext2D,round:MiniRound,widt
       ctx.shadowBlur=0;
       ctx.font="bold "+Math.round(Math.max(23,scale*.07))+"px system-ui";
       ctx.fillStyle="#fff";
-      ctx.fillText(green?"움직여요!":"그대로 멈춰!",x,height*.28);
+      ctx.fillText(green?"BEAT · 춤춰요!":"FREEZE · 몸 전체 정지!",x,height*.28);
       ctx.font="bold "+Math.round(Math.max(15,scale*.047))+"px system-ui";
       ctx.fillText(green?"GO!":"STOP!",x,y);
       ctx.fillStyle="#e1fff1";ctx.font="14px system-ui";
-      ctx.fillText(green?"손을 크게 움직여 점수를 모아요":"빨간 불에서는 손을 멈추세요",x,height*.74);
-      const limit=green?3.7:2.3,barWidth=width*.60;
+      ctx.fillText(green?"음악 10박자 동안 온몸을 움직여요":"6박자 동안 머리와 손발 모두 멈춰요",x,height*.74);
+      const beatPhase=round.phaseTime%3.84;
+      const ratio=green?1-beatPhase/2.4:1-(beatPhase-2.4)/1.44;
+      const barWidth=width*.60;
       ctx.fillStyle="rgba(17,27,43,.8)";ctx.fillRect((width-barWidth)/2,height*.82,barWidth,10);
       ctx.fillStyle=green?"#91f8b3":"#ffb2b8";
-      ctx.fillRect((width-barWidth)/2,height*.82,barWidth*Math.max(0,1-round.phaseTime/limit),10);
+      ctx.fillRect((width-barWidth)/2,height*.82,barWidth*Math.max(0,Math.min(1,ratio)),10);
       break;
     }
   }
