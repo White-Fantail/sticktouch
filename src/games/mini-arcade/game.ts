@@ -1,15 +1,17 @@
 import {circlesOverlap,type Point} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
+import {TouchEntries,touchCircle} from "../../engine/touch-entry.ts";
 
 export type MiniGameId="mole-whack"|"color-match"|"star-hunt"|"meteor-dodge"|"freeze-dance";
-export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number;large?:boolean};
+export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number;large?:boolean;leftCharged?:string;rightCharged?:string};
 export type MiniRound={
   kind:MiniGameId;playing:boolean;paused:boolean;score:number;time:number;
   seq:number;slot:number;lockedSlot:number;phaseTime:number;wait:number;
   items:MiniItem[];green:boolean;redTravel:number;danceDistance:number;
   redPenalty:boolean;lastHand:{part:string;x:number;y:number}|null;
   previousBody:Record<string,{x:number;y:number}>;
+  touches:TouchEntries;
 };
 export const MINI_GAME_IDS:readonly MiniGameId[]=[
   "mole-whack","color-match","star-hunt","meteor-dodge","freeze-dance"
@@ -26,7 +28,8 @@ export const COLOR_HEX=["#ff696e","#58b7ff","#ffe071"] as const;
 export function createMiniRound(kind:MiniGameId,seconds=ROUND_DURATION_SECONDS):MiniRound {
   return {kind,playing:false,paused:false,score:0,time:seconds,
     seq:0,slot:-1,lockedSlot:-1,phaseTime:0,wait:0,items:[],
-    green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null,previousBody:{}};
+    green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null,previousBody:{},
+    touches:new TouchEntries()};
 }
 function palmPoints(points:readonly Point[]){return points.filter(p=>p.part==="leftHand"||p.part==="rightHand");}
 function touch(p:Point,spot:{x:number;y:number},radius:number,width:number,height:number){
@@ -55,6 +58,7 @@ function spawnStar(round:MiniRound,hands:Point[],width:number,height:number,rand
   const theta=rand()*Math.PI*2;
   round.items=[{id:++round.seq,x,y,vx:Math.cos(theta)*0.095,
     vy:Math.sin(theta)*0.105,radius:0.064,age:0}];
+  round.touches.contact("star:"+round.seq,hands,touchCircle({x,y},.064,width,height),width,height);
 }
 function stepMole(round:MiniRound,dt:number,hands:Point[],width:number,height:number,
   rand:()=>number,events:GameEvent[]){
@@ -66,14 +70,15 @@ function stepMole(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
       round.slot=randomDifferent(round.lockedSlot,MOLE_SPOTS.length,rand);
       round.phaseTime=0;round.seq++;
       // A mole appearing under a stationary hand is not an intentional tap.
-      if(hands.some(p=>touch(p,MOLE_SPOTS[round.slot],0.082,width,height)))
-        round.lockedSlot=round.slot;
+      round.touches.contact("mole:"+round.seq,hands,
+        touchCircle(MOLE_SPOTS[round.slot],.082,width,height),width,height);
     }
     return;
   }
   round.phaseTime+=dt;
   const spot=MOLE_SPOTS[round.slot];
-  if(round.lockedSlot!==round.slot&&hands.some(p=>touch(p,spot,0.082,width,height))){
+  if(round.touches.contact("mole:"+round.seq,hands,
+    touchCircle(spot,.082,width,height),width,height)){
     events.push({id:"mole:hit:"+round.seq,type:"hit",targetId:"mole:"+round.seq,
       basePoints:15,position:{x:spot.x*width,y:spot.y*height},color:"#ffe08f"});
     round.lockedSlot=round.slot;round.slot=-1;round.wait=0.22;
@@ -89,8 +94,9 @@ function stepColor(round:MiniRound,dt:number,hands:Point[],width:number,height:n
   if(round.lockedSlot>=0&&!hands.some(p=>touch(p,COLOR_SPOTS[round.lockedSlot],0.115,width,height)))
     round.lockedSlot=-1;
   round.phaseTime+=dt;
-  const selected=COLOR_SPOTS.findIndex(spot=>hands.some(p=>touch(p,spot,0.115,width,height)));
-  if(selected>=0&&selected!==round.lockedSlot){
+  const selected=COLOR_SPOTS.findIndex((spot,i)=>!!round.touches.contact(
+    "color:"+round.seq+":"+i,hands,touchCircle(spot,.115,width,height),width,height));
+  if(selected>=0){
     const correct=selected===round.slot;
     events.push({id:"color:"+round.seq+":"+selected,type:correct?"good":"miss",
       targetId:"color:"+round.seq,basePoints:15,
@@ -110,7 +116,8 @@ function stepStar(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
   const star=round.items[0];star.age+=dt;star.x+=star.vx*dt;star.y+=star.vy*dt;
   if(star.x<0.11||star.x>0.89){star.vx=-star.vx;star.x=clamp(star.x,0.11,0.89);}
   if(star.y<0.24||star.y>0.79){star.vy=-star.vy;star.y=clamp(star.y,0.24,0.79);}
-  if(hands.some(p=>touch(p,star,star.radius,width,height))){
+  if(round.touches.contact("star:"+star.id,hands,
+    touchCircle(star,star.radius,width,height),width,height)){
     events.push({id:"star:collect:"+star.id,type:"collect",targetId:"star:"+star.id,basePoints:12,
       position:{x:star.x*width,y:star.y*height},color:"#ffe586"});
     round.items=[];round.wait=0.16;
@@ -135,9 +142,22 @@ function stepMeteor(round:MiniRound,dt:number,points:Point[],width:number,height
     meteor.x+=meteor.vx*dt;meteor.age+=dt;
     const left={x:meteor.x-.055,y:meteor.y};
     const right={x:meteor.x+.055,y:meteor.y};
-    const paired=hands.length>=2&&hands.some(a=>touch(a,left,.060,width,height)&&
-      hands.some(b=>b.part!==a.part&&touch(b,right,.060,width,height)));
-    const punched=!meteor.large&&hands.some(p=>touch(p,meteor,meteor.radius,width,height));
+    if(meteor.large){
+      const l=round.touches.contact("meteor:"+meteor.id+":left",hands,
+        touchCircle(left,.060,width,height),width,height);
+      const rr=round.touches.contact("meteor:"+meteor.id+":right",hands,
+        touchCircle(right,.060,width,height),width,height);
+      if(l)meteor.leftCharged=l.part;
+      if(rr)meteor.rightCharged=rr.part;
+      if(!hands.some(p=>p.part===meteor.leftCharged&&touch(p,left,.060,width,height)))
+        meteor.leftCharged=undefined;
+      if(!hands.some(p=>p.part===meteor.rightCharged&&touch(p,right,.060,width,height)))
+        meteor.rightCharged=undefined;
+    }
+    const paired=!!meteor.large&&!!meteor.leftCharged&&!!meteor.rightCharged&&
+      meteor.leftCharged!==meteor.rightCharged;
+    const punched=!meteor.large&&!!round.touches.contact("meteor:"+meteor.id+":single",
+      hands,touchCircle(meteor,meteor.radius,width,height),width,height);
     const damaged=points.some(p=>["head","leftFoot","rightFoot"].includes(p.part)&&
       touch(p,meteor,meteor.radius,width,height));
     if(paired||punched){
