@@ -1,7 +1,7 @@
 /** One shared real-time arcade clock; simulation speed never consumes extra clock time. */
 export const ROUND_DURATIONS=[30,45,60] as const;
 export type RoundDuration=typeof ROUND_DURATIONS[number];
-export const ROUND_DURATION_SECONDS:RoundDuration=45;
+export const ROUND_DURATION_SECONDS:number=45;
 /** Separate legacy rulesets and each round length in personal-best records. */
 export const ARCADE_RULESET_VERSION="v3-fever15-double";
 export function rulesetForDuration(seconds:RoundDuration):string {

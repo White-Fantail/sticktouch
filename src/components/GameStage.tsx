@@ -56,7 +56,7 @@ export function GameStage({game}: {game: GameDefinition}) {
   useEffect(()=>{
     setBestScore(getBestRecord(game.id,rulesetForDuration(selectedSeconds),hitbox)?.score??0);
   },[game.id,hitbox,selectedSeconds]);
-  const [timeLeft,setTimeLeft]=useState(game.recommendedSeconds);
+  const [timeLeft,setTimeLeft]=useState<number>(game.recommendedSeconds);
   const [finished,setFinished]=useState(false);
   const [gestureProgress,setGestureProgress]=useState(0);
   const [countdown,setCountdown]=useState(0);

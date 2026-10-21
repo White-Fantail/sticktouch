@@ -17,7 +17,7 @@ export type GameRound =
   | {kind:ExpertGameId;state:ExpertRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
-export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS):GameRound {
+export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS as RoundDuration):GameRound {
   switch(id){
     case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound(seconds)};
     case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound(seconds)};
