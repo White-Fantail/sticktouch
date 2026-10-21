@@ -98,20 +98,53 @@ function spawnBolt(round:AdvancedRound,rand:()=>number){
   const speed=.20+rand()*.09;
   round.bolts.push({id:++round.seq,x,y,vx:dx/length*speed,vy:dy/length*speed,age:0});
 }
-function stepShield(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
-  rand:()=>number,events:GameEvent[]){
-  round.spawnTime+=dt;
-  const interval=Math.max(.67,1.15-(ROUND_DURATION_SECONDS-round.time)*.006);
-  while(round.spawnTime>=interval){
-    round.spawnTime-=interval;spawnBolt(round,rand);
+export function shieldForearms(pose:readonly Landmark[]|undefined,view:Viewport|undefined){
+  if(!pose||!view)return [];
+  const arms:{part:"leftHand"|"rightHand";a:{x:number;y:number};b:{x:number;y:number};angle:number}[]=[];
+  for(const side of ["left","right"] as const){
+    const elbow=pose[side==="left"?13:14],wrist=pose[side==="left"?15:16];
+    if(!elbow||!wrist||[elbow,wrist].some(p=>
+      !Number.isFinite(p.x)||!Number.isFinite(p.y)||(p.visibility??1)<.5))continue;
+    const a=mapPoint(elbow.x,elbow.y,view),b=mapPoint(wrist.x,wrist.y,view);
+    arms.push({part:side==="left"?"leftHand":"rightHand",a,b,
+      angle:Math.atan2(b.y-a.y,b.x-a.x)});
   }
+  return arms;
+}
+function stepShield(round:AdvancedRound,dt:number,points:Point[],w:number,h:number,
+  rand:()=>number,events:GameEvent[],pose?:readonly Landmark[],view?:Viewport){
+  const arms=shieldForearms(pose,view);
+  round.shieldArms=arms.map(arm=>({x:(arm.a.x+arm.b.x)/2/w,
+    y:(arm.a.y+arm.b.y)/2/h,angle:arm.angle}));
+  round.spawnTime+=dt;
+  const interval=Math.max(.67,1.12-(ROUND_DURATION_SECONDS-round.time)*.006);
+  while(round.spawnTime>=interval){round.spawnTime-=interval;spawnBolt(round,rand);}
   const remaining:Bolt[]=[];
   for(const bolt of round.bolts){
     bolt.x+=bolt.vx*dt;bolt.y+=bolt.vy*dt;bolt.age+=dt;
-    const hit=hands.find(p=>touch(p,bolt,.052,w,h));
-    if(hit){
-      events.push({id:"shield:block:"+bolt.id,type:"hit",targetId:"shield:"+bolt.id,
-        basePoints:20,position:position(bolt.x,bolt.y,w,h),color:"#7bf3e0",bodyPart:hit.part});
+    if(bolt.reflected){
+      if(bolt.x>-.20&&bolt.x<1.20&&bolt.y>-.20&&bolt.y<1.20&&bolt.age<8)
+        remaining.push(bolt);
+      continue;
+    }
+    const bx=bolt.x*w,by=bolt.y*h;
+    const incoming=Math.hypot(bolt.vx*w,bolt.vy*h)||1;
+    const reflector=arms.find(arm=>{
+      const dx=arm.b.x-arm.a.x,dy=arm.b.y-arm.a.y;
+      const len=Math.hypot(dx,dy)||1;
+      const t=clamp(((bx-arm.a.x)*dx+(by-arm.a.y)*dy)/(len*len),0,1);
+      const separation=Math.hypot(bx-(arm.a.x+dx*t),by-(arm.a.y+dy*t));
+      const aligned=Math.abs((dx*bolt.vx*w+dy*bolt.vy*h)/(len*incoming));
+      return separation<=Math.min(w,h)*.063&&aligned<.64;
+    });
+    if(reflector){
+      // The forearm forms the reflecting plane. Tangential arm contact does
+      // not reflect; align the arm crosswise to the incoming projectile.
+      bolt.reflected=true;bolt.vx*=-1.45;bolt.vy*=-1.45;
+      events.push({id:"shield:reflect:"+bolt.id,type:"perfect",
+        targetId:"shield:"+bolt.id,basePoints:30,
+        position:{x:bx,y:by},color:"#8afbed",bodyPart:reflector.part});
+      remaining.push(bolt);
     }else if(Math.hypot(bolt.x-.5,bolt.y-.51)<.105){
       events.push({id:"shield:damage:"+bolt.id,type:"damage",targetId:"shield:"+bolt.id,
         position:position(.5,.51,w,h),color:"#ff808a"});
@@ -258,7 +291,7 @@ export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:nu
   const simDt=dt*speed;
   switch(round.kind){
     case "rhythm-pads":stepBeats(round,simDt,hands,w,h,rand,events);break;
-    case "shield-guard":stepShield(round,simDt,hands,w,h,rand,events);break;
+    case "shield-guard":stepShield(round,simDt,points,w,h,rand,events,pose,view);break;
     case "memory-sequence":stepMemory(round,simDt,hands,w,h,rand,events);break;
     case "laser-lane":stepLaser(round,simDt,hands,w,h,rand,events);break;
     case "parcel-sort":stepParcel(round,simDt,hands,w,h,rand,events);break;
