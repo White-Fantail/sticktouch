@@ -34,11 +34,13 @@ test("unreliable joints stop pose timer and do not count as a failure",()=>{
 test("Dance Mirror scores a sustained pose but keeps the same move until the beat ends",()=>{
   const g=createPoseRound(10);g.playing=true;
   const a=player();
+  const start=player();start[15].y=.6;start[16].y=.6;
+  stepPoseRound(g,.08,start,640,480);
   for(let i=0;i<3;i++)assert.equal(stepPoseRound(g,.08,a,640,480).events.length,0);
   const hit=stepPoseRound(g,.08,a,640,480);
   assert.equal(hit.events[0]?.type,"perfect");
   assert.equal(g.step,0,"pose must remain on screen until the next musical beat");
-  for(let i=0;i<13;i++)assert.equal(stepPoseRound(g,.08,a,640,480).events.length,0);
+  for(let i=0;i<12;i++)assert.equal(stepPoseRound(g,.08,a,640,480).events.length,0);
   assert.equal(g.step,0);
   stepPoseRound(g,.08,a,640,480);
   assert.equal(g.step,1);
