@@ -330,3 +330,11 @@ Hand 추론은 Pose와 독립적으로 제한된 빈도로 동작하며 저사�
 - 손의 이전 추적 위치와 현재 위치 사이의 **실제 움직임**을 기준으로 투구·릴링·인력·척력을 발생시킨다. 충돌은 공통 `TouchEntries`의 밖→안 진입 조건 및 손 이동 여부를 함께 검사한다. 공만 움직여 정지한 손에 닿으면 반사/세이브 득점하지 않는다. 추적 손실 시 모든 게임 시간이 멈춘다.
 - 스코어·콤보·사운드 및 최고기록은 GameFeelEngine이 담당. 스포츠 모듈은 event만 보고한다. 화면 픽셀/정규화 좌표는 **정교한 3D 실제 물리나 절대 깊이 인식이 아니다**.
 - `tests/sports-arcade.test.ts`와 전체 `npm run test && npm run check && npm run build` 통과 전 출시 상태 변경 금지. 실제 iOS/Android 카메라의 스윙 민감도·프레임레이트·균형 조정은 추가 필요. `dev` 개발, `main`은 사용자 요청 시 별도 ff-only 검증 후 반영한다.
+
+
+## 2026-10-21 — 음악·창작·표현 게임 7종 (dev)
+- 카탈로그: `src/games/creative-arcade/catalog.ts`, 7개의 실제 게임 ID 및 `creative` 카테고리. 런타임: `game.ts`, Canvas 표현: `scene.ts`, 통합: `runtime.ts`와 `engine/game-scenes.ts`.
+- 각 게임의 입력이 독립적이어야 함: 드럼=부위별 TouchEntries 외→내 타격, 작곡=중앙 현 가로 스와이프/손 높이 음계, 좀비=박자별 새로운 포즈, 몸으로 말해요=제시어 포즈, 바디 페인터=이동 궤적, 오케스트라=악기별 포즈와 화음, 그림자 극장=관절 실루엣과 장면 포즈.
+- 정지/중복 방지: 포즈는 먼저 불일치 상태에서 새 자세로 만들어 일정 시간 유지, 재진입 타격은 TouchEntries, 손 움직임은 이전 프레임 대비 최소 이동거리. 인식 손실은 미스로 취급하지 않고 입력 이력을 재설정.
+- 음악 이벤트는 `GameEvent.pitch/instrument` 메타데이터를 가지고 공통 `AudioManager.cueCreative`가 브라우저 내 Web Audio로 재생. 기존 SFX 볼륨·뮤트·일시정지·권한 해제 수명주기를 그대로 지킬 것.
+- 영상/소리 업로드·녹화·마이크 사용 없음. 자동 단위 테스트와 CI는 실제 카메라 기기 검증을 대체하지 않음. 기존 `dev` 자동 Vercel 빌드 제외와 `main` ff-only·사용자 승인 규칙 유지. 설계 상세: `docs/CREATIVE_ARCADE.md`.
