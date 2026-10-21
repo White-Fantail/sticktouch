@@ -31,7 +31,7 @@ test("no duo timer/score advances unless both players are visible",()=>{
  const r=createDuoRound("co-op-power-plant",45);r.playing=true;
  const f=pair();tick(r,f);
  const time=r.time;
- const absent=[f[0],{...f[1],visible:false,points:[],pose:undefined}] as const;
+ const absent:readonly [PlayerFrame,PlayerFrame]=[f[0],{...f[1],visible:false,points:[],pose:undefined}];
  assert.deepEqual(tick(r,absent).events,[]);
  assert.equal(r.time,time);
  r.paused=true;tick(r,f);assert.equal(r.time,time);
