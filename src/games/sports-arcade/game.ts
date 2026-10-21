@@ -25,8 +25,6 @@ export type SportRound={
 };
 const clamp=(x:number,min:number,max:number)=>Math.max(min,Math.min(max,x));
 const random=(lo:number,hi:number,rand:()=>number)=>lo+(hi-lo)*rand();
-const inside=(p:Point,b:SportBall,w:number,h:number)=>
-  Math.hypot(p.x-b.x*w,p.y-b.y*h)<=p.radius+b.r*Math.min(w,h);
 const circle=(b:SportBall,w:number,h:number)=>({x:b.x*w,y:b.y*h,radius:b.r*Math.min(w,h)});
 const partNames:readonly BodyPart[]=["leftHand","rightHand","leftFoot","rightFoot"];
 const handsOnly:readonly BodyPart[]=["leftHand","rightHand"];
@@ -131,6 +129,7 @@ export function stepSportRound(r:SportRound,delta:number,w:number,h:number,
         const glove=hitMovingHand(r,b,points,w,h,partNames);
         if(glove){
           events.push(event(r,"hit","save-"+b.id,b,w,h,22,glove.part));
+          r.stage++;
           r.balls=[];resetRoundObject(r);
         }else if(b.y>.96){
           events.push(event(r,"miss","goal-"+b.id,b,w,h));
