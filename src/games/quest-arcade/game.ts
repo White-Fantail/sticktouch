@@ -24,7 +24,7 @@ export const GARDEN_BEDS=[.24,.50,.76] as const;
 export const MONSTER_PARTS=["머리","왼팔","오른팔","다리"] as const;
 export const PROGRAMS:readonly (readonly Command[])[]=[
   ["up","right","right"],["down","right","up"],["left","up","up"],
-  ["right","down","right"],["up","up","left"],["down","left","down"]
+  ["right","down","right"],["up","up","left"],["down","left","up"]
 ];
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 const distance=(a:Vec,b:Vec)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -264,7 +264,8 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
         r.step=2;r.armed=false;r.hold=0;
       }else if(r.step===2&&pose){
         const lh=part(points,"leftHand"),rh=part(points,"rightHand");
-        const shoulderY=(pose[11].y+pose[12].y)/2;
+        const shoulderY=(mapPoint(pose[11].x,pose[11].y,view).y+
+          mapPoint(pose[12].x,pose[12].y,view).y)/(2*h);
         const up=!!lh&&!!rh&&lh.y/h<shoulderY-.13&&rh.y/h<shoulderY-.13;
         if(guided(r,up,sim,.35)){
           r.grown++;complete(r,events,w,h,34,{x,y:.65});
@@ -288,7 +289,8 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
           !!pose&&reliable(pose[11])&&reliable(pose[12])&&
           !!part(points,"leftHand")&&!!part(points,"rightHand")&&
           points.filter(p=>p.part==="leftHand"||p.part==="rightHand")
-            .every(p=>p.y/h<Math.min(pose![11].y,pose![12].y)-.08);
+            .every(p=>p.y/h<Math.min(mapPoint(pose![11].x,pose![11].y,view).y/h,
+              mapPoint(pose![12].x,pose![12].y,view).y/h)-.08);
         if(guided(r,evade,sim,.4))complete(r,events,w,h,45);
         if(r.phase>3.7)fail(r,events,w,h);
       }
@@ -355,7 +357,7 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
         r.robot={x:1,y:2};
         if(r.cooldown<=0&&r.instructions.length<3){
           for(const b of COMMAND_BUTTONS){
-            if(r.touches.contact("cmd:"+r.stage+":"+r.instructions.length,
+            if(r.touches.contact("cmd:"+r.stage+":"+r.instructions.length+":"+b.name,
               points,pointCircle(b,.063,w,h),hands)){
               r.instructions.push(b.name);r.touches.reset();r.cooldown=.16;break;
             }
