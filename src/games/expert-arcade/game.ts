@@ -1,5 +1,6 @@
 import {circlesOverlap,type Point} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
+import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type ExpertGameId="boss-raid"|"gravity-lab"|"shadow-sync"|"constellation-trace"|"dual-portals";
 export const EXPERT_GAME_IDS:readonly ExpertGameId[]=[
@@ -39,7 +40,7 @@ const event=(r:ExpertRound,key:string,type:GameEvent["type"],spot:Spot,w:number,
   });
 const weakspots:readonly Spot[]=[{x:.31,y:.34},{x:.69,y:.34},{x:.5,y:.51}];
 
-export function createExpertRound(kind:ExpertGameId,seconds=60):ExpertRound{
+export function createExpertRound(kind:ExpertGameId,seconds=ROUND_DURATION_SECONDS):ExpertRound{
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     boss:{health:4,stage:1,age:0,weak:weakspots[0],hit:false,touching:false,danger:false,attackSide:0},
     maze:{ball:{x:.16,y:.78},vx:0,vy:0,level:1,cooldown:0,hazardTime:0},
@@ -199,7 +200,7 @@ function portalStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
 
 /** Fixed-step friendly rules; a missing required hand freezes motion, misses, and clock. */
 export function stepExpertRound(r:ExpertRound,delta:number,w:number,h:number,points:Point[],
-  rand:()=>number=Math.random):{finished:boolean;events:GameEvent[]}{
+  rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]}{
   if(!r.playing||r.paused)return {finished:false,events:[]};
   const hands=palms(points);
   const needsTwo=r.kind==="gravity-lab"||r.kind==="shadow-sync"||r.kind==="dual-portals";
@@ -208,12 +209,13 @@ export function stepExpertRound(r:ExpertRound,delta:number,w:number,h:number,poi
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   r.time=Math.max(0,r.time-dt);
   const events:GameEvent[]=[];
+  const simDt=dt*speed;
   switch(r.kind){
-    case "boss-raid":bossStep(r,dt,hands,w,h,rand,events);break;
-    case "gravity-lab":mazeStep(r,dt,hands,w,h,events);break;
-    case "shadow-sync":shadowStep(r,dt,hands,w,h,events);break;
-    case "constellation-trace":traceStep(r,dt,hands,w,h,events);break;
-    case "dual-portals":portalStep(r,dt,hands,w,h,events);break;
+    case "boss-raid":bossStep(r,simDt,hands,w,h,rand,events);break;
+    case "gravity-lab":mazeStep(r,simDt,hands,w,h,events);break;
+    case "shadow-sync":shadowStep(r,simDt,hands,w,h,events);break;
+    case "constellation-trace":traceStep(r,simDt,hands,w,h,events);break;
+    case "dual-portals":portalStep(r,simDt,hands,w,h,events);break;
   }
   if(r.time<=0)r.playing=false;
   return {finished:r.time<=0,events};

@@ -1,5 +1,6 @@
 import {circlesOverlap,type Point} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
+import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type MiniGameId="mole-whack"|"color-match"|"star-hunt"|"meteor-dodge"|"freeze-dance";
 export type MiniItem={id:number;x:number;y:number;vx:number;vy:number;radius:number;age:number};
@@ -21,7 +22,7 @@ export const COLOR_SPOTS:readonly {x:number;y:number}[]=[
 ];
 export const COLOR_NAMES=["빨강","파랑","노랑"] as const;
 export const COLOR_HEX=["#ff696e","#58b7ff","#ffe071"] as const;
-export function createMiniRound(kind:MiniGameId,seconds=60):MiniRound {
+export function createMiniRound(kind:MiniGameId,seconds=ROUND_DURATION_SECONDS):MiniRound {
   return {kind,playing:false,paused:false,score:0,time:seconds,
     seq:0,slot:-1,lockedSlot:-1,phaseTime:0,wait:0,items:[],
     green:true,redTravel:0,danceDistance:0,redPenalty:false,lastHand:null};
@@ -121,7 +122,7 @@ function stepStar(round:MiniRound,dt:number,hands:Point[],width:number,height:nu
 function stepMeteor(round:MiniRound,dt:number,hands:Point[],width:number,height:number,
   rand:()=>number,events:GameEvent[]){
   round.phaseTime+=dt;
-  if(round.phaseTime>=Math.max(0.56,1.1-(60-round.time)*0.005)){
+  if(round.phaseTime>=Math.max(0.56,1.1-(ROUND_DURATION_SECONDS-round.time)*0.005)){
     round.phaseTime=0;
     const fromLeft=rand()<0.5,speed=0.27+rand()*0.13;
     round.items.push({id:++round.seq,x:fromLeft?-0.1:1.1,y:0.25+rand()*0.54,
@@ -174,19 +175,20 @@ function stepDance(round:MiniRound,dt:number,hands:Point[],width:number,height:n
 /** Pure gameplay: all five games emit platform GameEvents; the host owns score/combo/audio.
  * Missing hand tracking freezes the timer and objects rather than counting failures. */
 export function stepMiniRound(round:MiniRound,delta:number,width:number,height:number,points:Point[],
-  rand:()=>number=Math.random):{finished:boolean;events:GameEvent[]} {
+  rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]} {
   if(!round.playing||round.paused)return {finished:false,events:[]};
   const hands=palmPoints(points);
   if(!hands.length||width<=0||height<=0){round.lastHand=null;return {finished:false,events:[]};}
   const dt=clamp(delta,0,0.08);
   round.time=Math.max(0,round.time-dt);
   const events:GameEvent[]=[];
+  const simDt=dt*speed;
   switch(round.kind){
-    case "mole-whack":stepMole(round,dt,hands,width,height,rand,events);break;
-    case "color-match":stepColor(round,dt,hands,width,height,rand,events);break;
-    case "star-hunt":stepStar(round,dt,hands,width,height,rand,events);break;
-    case "meteor-dodge":stepMeteor(round,dt,hands,width,height,rand,events);break;
-    case "freeze-dance":stepDance(round,dt,hands,width,height,events);break;
+    case "mole-whack":stepMole(round,simDt,hands,width,height,rand,events);break;
+    case "color-match":stepColor(round,simDt,hands,width,height,rand,events);break;
+    case "star-hunt":stepStar(round,simDt,hands,width,height,rand,events);break;
+    case "meteor-dodge":stepMeteor(round,simDt,hands,width,height,rand,events);break;
+    case "freeze-dance":stepDance(round,simDt,hands,width,height,events);break;
   }
   if(round.time<=0)round.playing=false;
   return {finished:round.time<=0,events};

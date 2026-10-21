@@ -1,5 +1,6 @@
 import type {Landmark} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
+import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type PoseName="arms-up"|"t-pose"|"hands-hips"|"one-arm-up"|"star";
 export const POSE_SEQUENCE:readonly {id:PoseName;label:string;instruction:string}[]=[
@@ -11,7 +12,7 @@ export const POSE_SEQUENCE:readonly {id:PoseName;label:string;instruction:string
 ] as const;
 export const POSE_HOLD_SECONDS=0.85;
 export const POSE_TARGET_SECONDS=8;
-export const POSE_DURATION_SECONDS=60;
+export const POSE_DURATION_SECONDS=ROUND_DURATION_SECONDS;
 export type PoseRound={
   playing:boolean;paused:boolean;score:number;time:number;
   step:number; hold:number;targetTime:number; tracking:boolean;
@@ -57,15 +58,15 @@ export function matchesPose(pose:readonly Landmark[]|undefined,kind:PoseName):bo
   }
 }
 export function stepPoseRound(round:PoseRound,delta:number,pose:readonly Landmark[]|undefined,
-  width:number,height:number):{finished:boolean;events:GameEvent[]} {
+  width:number,height:number,speed=1):{finished:boolean;events:GameEvent[]} {
   if(!round.playing||round.paused)return {finished:false,events:[]};
   const match=matchesPose(pose,poseTarget(round).id);
   round.tracking=match!==null;
   if(match===null)return {finished:false,events:[]};
   const dt=Math.max(0,Math.min(0.08,delta));
   round.time=Math.max(0,round.time-dt);
-  round.targetTime+=dt;
-  round.hold=match?round.hold+dt:0;
+  round.targetTime+=dt*speed;
+  round.hold=match?round.hold+dt*speed:0;
   const events:GameEvent[]=[];
   if(round.hold>=POSE_HOLD_SECONDS){
     events.push({id:"pose:success:"+round.step,type:round.targetTime<3.5?"perfect":"good",

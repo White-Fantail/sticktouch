@@ -1,5 +1,6 @@
 import {circlesOverlap,type Point} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
+import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
 export type AdvancedGameId=
   |"rhythm-pads"|"shield-guard"|"memory-sequence"|"laser-lane"|"parcel-sort";
@@ -34,7 +35,7 @@ const position=(x:number,y:number,w:number,h:number)=>({x:x*w,y:y*h});
 const touch=(p:Point,at:{x:number;y:number},radius:number,w:number,h:number)=>
   circlesOverlap(p,{...position(at.x,at.y,w,h),radius:radius*Math.min(w,h)});
 
-export function createAdvancedRound(kind:AdvancedGameId,seconds=60):AdvancedRound{
+export function createAdvancedRound(kind:AdvancedGameId,seconds=ROUND_DURATION_SECONDS):AdvancedRound{
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
     memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
@@ -92,7 +93,7 @@ function spawnBolt(round:AdvancedRound,rand:()=>number){
 function stepShield(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
   rand:()=>number,events:GameEvent[]){
   round.spawnTime+=dt;
-  const interval=Math.max(.67,1.15-(60-round.time)*.006);
+  const interval=Math.max(.67,1.15-(ROUND_DURATION_SECONDS-round.time)*.006);
   while(round.spawnTime>=interval){
     round.spawnTime-=interval;spawnBolt(round,rand);
   }
@@ -238,7 +239,7 @@ function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:numbe
 /** Gameplay is deterministic for injected randomness and reports only platform events.
  * Timer, simulation, and misses freeze whenever hand tracking disappears. */
 export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:number,points:Point[],
-  rand:()=>number=Math.random):{finished:boolean;events:GameEvent[]}{
+  rand:()=>number=Math.random,speed=1):{finished:boolean;events:GameEvent[]}{
   if(!round.playing||round.paused)return {finished:false,events:[]};
   const hands=handsOnly(points);
   if(!hands.length||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h))
@@ -246,12 +247,13 @@ export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:nu
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   round.time=Math.max(0,round.time-dt);
   const events:GameEvent[]=[];
+  const simDt=dt*speed;
   switch(round.kind){
-    case "rhythm-pads":stepBeats(round,dt,hands,w,h,rand,events);break;
-    case "shield-guard":stepShield(round,dt,hands,w,h,rand,events);break;
-    case "memory-sequence":stepMemory(round,dt,hands,w,h,rand,events);break;
-    case "laser-lane":stepLaser(round,dt,hands,w,h,rand,events);break;
-    case "parcel-sort":stepParcel(round,dt,hands,w,h,rand,events);break;
+    case "rhythm-pads":stepBeats(round,simDt,hands,w,h,rand,events);break;
+    case "shield-guard":stepShield(round,simDt,hands,w,h,rand,events);break;
+    case "memory-sequence":stepMemory(round,simDt,hands,w,h,rand,events);break;
+    case "laser-lane":stepLaser(round,simDt,hands,w,h,rand,events);break;
+    case "parcel-sort":stepParcel(round,simDt,hands,w,h,rand,events);break;
   }
   if(round.time<=0)round.playing=false;
   return {finished:round.time<=0,events};

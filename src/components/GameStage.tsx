@@ -15,6 +15,8 @@ import {GameFeelSession,type GameStats} from "../engine/game-feel";
 import {AudioManager} from "../engine/audio";
 import {EffectManager} from "../engine/effects";
 import {getBestRecord,saveBestRecord} from "../engine/records";
+import {createStartGesture,resetStartGesture,stepStartGesture} from "../engine/start-gesture";
+import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS} from "../engine/round-tempo";
 
 
 type Phase = "idle" | "loading" | "ready" | "error";
@@ -53,6 +55,11 @@ export function GameStage({game}: {game: GameDefinition}) {
   },[game.id,hitbox]);
   const [timeLeft,setTimeLeft]=useState(ROUND_SECONDS);
   const [finished,setFinished]=useState(false);
+  const [gestureProgress,setGestureProgress]=useState(0);
+  const [countdown,setCountdown]=useState(0);
+  const gestureRef=useRef(createStartGesture());
+  const countdownRef=useRef(0);
+  const quickSettingsOpenRef=useRef(false);
   const videoRef=useRef<HTMLVideoElement>(null);
   const canvasRef=useRef<HTMLCanvasElement>(null);
   const wrapRef=useRef<HTMLDivElement>(null);
@@ -91,12 +98,17 @@ export function GameStage({game}: {game: GameDefinition}) {
     gameRef.current.state.playing=false;gameRef.current.state.paused=false;
     feelRef.current.reset();effectsRef.current.reset();audioRef.current.destroy();
     resumeAfterSettingsRef.current=false;
+    quickSettingsOpenRef.current=false;countdownRef.current=0;
+    resetStartGesture(gestureRef.current,false);
+    if(mountedRef.current){setCountdown(0);setGestureProgress(0);setFinished(false);}
     if(mountedRef.current){setQuickSettingsOpen(false);setPhase("idle");setDetected(false);setPlaying(false);setPalmTracking(false);setHandModelStatus("pending");setHandSources({left:"none",right:"none"});}
   },[]);
   useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;stop();};},[stop]);
 
   const start = async (facing:CameraSide=side)=>{
     stop();
+    // Audio must be unlocked while handling the camera button click (iOS Safari).
+    audioRef.current.unlock();
     const token=sessionRef.current;
     if(!window.isSecureContext){setPhase("error");setMessage("카메라는 HTTPS 또는 localhost에서만 실행할 수 있어요.");return;}
     if(!navigator.mediaDevices?.getUserMedia){setPhase("error");setMessage("이 브라우저는 카메라 접근을 지원하지 않습니다.");return;}
@@ -151,7 +163,7 @@ export function GameStage({game}: {game: GameDefinition}) {
       setHandModelStatus(handDetector?"ready":"fallback");
       setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
       let last=performance.now(),lastPoseInference=0,lastHandInference=0,lastVideoTime=-1;
-      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0,lastSourceKey="none/none",lastCountdownSecond=0;
+      let lastHandSample=0,lastDetected=false,lastPalm=false,lastHud=0,lastSourceKey="none/none",lastCountdownSecond=0,lastGestureHud=0;
       let handInterval=160;
       const tick=(now:number)=>{
         if(token!==sessionRef.current)return;
@@ -206,6 +218,30 @@ export function GameStage({game}: {game: GameDefinition}) {
         const found=gameTracking(gameRef.current,points,posesRef.current);
         if(found!==lastDetected){lastDetected=found;setDetected(found);}
         const g=gameRef.current.state;
+        const canGesture=found && now-lastPoseInference<280 && !document.hidden && !quickSettingsOpenRef.current;
+        if(!g.playing){
+          if(countdownRef.current>0){
+            if(canGesture){
+              const before=Math.ceil(countdownRef.current);
+              countdownRef.current=Math.max(0,countdownRef.current-dt);
+              if(Math.ceil(countdownRef.current)!==before){
+                setCountdown(Math.ceil(countdownRef.current));
+                if(countdownRef.current>0)audioRef.current.cue("countdown");
+              }
+              if(countdownRef.current<=0)begin();
+            }
+          }else if(!quickSettingsOpenRef.current){
+            const progress=stepStartGesture(gestureRef.current,canGesture?posesRef.current:undefined,dt);
+            if(progress.triggered){
+              countdownRef.current=COUNT_IN_SECONDS;
+              setCountdown(COUNT_IN_SECONDS);setGestureProgress(0);
+              audioRef.current.cue("countdown");
+            }else if(now-lastGestureHud>=130){
+              lastGestureHud=now;setGestureProgress(Math.round(progress.progress*100));
+            }
+          }
+        }
+        audioRef.current.setFinalRush(g.playing && !g.paused && g.time>0 && g.time<=FINAL_RUSH_SECONDS);
         if(g.playing && !g.paused && !document.hidden){
           const result=stepGameRound(gameRef.current,dt,width,height,points,posesRef.current,v);
           if(result.events.length){
@@ -224,11 +260,12 @@ export function GameStage({game}: {game: GameDefinition}) {
             lastHud=now;
             const seconds=Math.ceil(g.time);
             setTimeLeft(seconds);
-            if(seconds<=5&&seconds>0&&seconds!==lastCountdownSecond){
+            if(seconds>0&&(seconds===10||seconds<=5)&&seconds!==lastCountdownSecond){
               lastCountdownSecond=seconds;audioRef.current.cue("countdown");
             }
           }
           if(result.finished){
+            resetStartGesture(gestureRef.current,true);
             audioRef.current.stopMusic();audioRef.current.cue("finish");
             const snapshot=feelRef.current.stats;
             const saved=saveBestRecord(game.id,"v1",snapshot,s.hitbox);
@@ -257,7 +294,9 @@ export function GameStage({game}: {game: GameDefinition}) {
     }
   };
   const begin=()=>{
-    if(phase!=="ready" || !detected)return;
+    if(!trackerRef.current || quickSettingsOpenRef.current)return;
+    countdownRef.current=0;setCountdown(0);setGestureProgress(0);
+    resetStartGesture(gestureRef.current,true);
     gameRef.current=createGameRound(game.id);
     const g=gameRef.current.state;
     feelRef.current.reset();effectsRef.current.reset();
@@ -268,7 +307,9 @@ export function GameStage({game}: {game: GameDefinition}) {
   };
   const end=()=>{
     gameRef.current.state.playing=false;gameRef.current.state.paused=false;setPaused(false);
-    resumeAfterSettingsRef.current=false;setQuickSettingsOpen(false);
+    resetStartGesture(gestureRef.current,true);
+    countdownRef.current=0;setCountdown(0);setGestureProgress(0);
+    resumeAfterSettingsRef.current=false;quickSettingsOpenRef.current=false;setQuickSettingsOpen(false);
     audioRef.current.stopMusic();effectsRef.current.reset();feelRef.current.reset();
     setScore(0);setCombo(0);setMaxCombo(0);setStats(null);
     setPlaying(false);setFinished(false);setTimeLeft(ROUND_SECONDS);
@@ -281,12 +322,12 @@ export function GameStage({game}: {game: GameDefinition}) {
     const g=gameRef.current.state;
     resumeAfterSettingsRef.current=pauseForSettings(g);
     if(g.playing){audioRef.current.pause();setPaused(true);}
-    setQuickSettingsOpen(true);
+    quickSettingsOpenRef.current=true;setQuickSettingsOpen(true);
   };
   const closeQuickSettings=()=>{
     const shouldResume=resumeAfterSettingsRef.current;
     resumeAfterSettingsRef.current=false;
-    setQuickSettingsOpen(false);
+    quickSettingsOpenRef.current=false;setQuickSettingsOpen(false);
     if(restoreAfterSettings(gameRef.current.state,shouldResume,!document.hidden)){
       audioRef.current.resume();setPaused(false);
     }
@@ -331,6 +372,8 @@ export function GameStage({game}: {game: GameDefinition}) {
   useEffect(()=>{
     const handleVisibility=()=>{
       if(document.hidden){
+        countdownRef.current=0;setCountdown(0);setGestureProgress(0);
+        resetStartGesture(gestureRef.current,true);
         // Do not auto-resume after a tab was backgrounded while settings were open.
         resumeAfterSettingsRef.current=false;
         if(gameRef.current.state.playing){
@@ -398,6 +441,19 @@ export function GameStage({game}: {game: GameDefinition}) {
           </span>}
           {!playing&&bestScore>0&&<span className="hud-best"><small>BEST</small><b>{bestScore.toLocaleString()}</b></span>}
         </div>}
+        {phase==="ready" && !playing && !finished && !quickSettingsOpen && detected && countdown===0 &&
+          <div className="gesture-guide" aria-live="polite">
+            <strong>🙌 양손을 어깨 위로 들어요</strong>
+            <span>약 1초 유지하면 자동 시작!</span>
+            <div className="gesture-meter" role="progressbar" aria-label="시작 제스처 인식"
+              aria-valuenow={gestureProgress} aria-valuemin={0} aria-valuemax={100}>
+              <i style={{width:gestureProgress+"%"}}/>
+            </div>
+          </div>}
+        {phase==="ready" && !playing && !quickSettingsOpen && countdown>0 &&
+          <div className="gesture-count-in" aria-live="polite"><strong>{countdown}</strong><span>준비!</span></div>}
+        {phase==="ready" && playing && timeLeft<=FINAL_RUSH_SECONDS && !paused && !quickSettingsOpen &&
+          <div className="final-rush-label">⚡ LAST 10 · SPEED UP!</div>}
         {phase==="ready" && playing && paused && !quickSettingsOpen && <div className="paused-overlay">
           <strong>일시정지</strong><p>준비되면 게임을 계속하세요.</p>
           <button className="primary" onClick={togglePause}>▶ 계속하기</button></div>}
@@ -410,9 +466,10 @@ export function GameStage({game}: {game: GameDefinition}) {
             <span><small>성공 횟수</small><b>{stats?.successes??0}</b></span>
             <span><small>명중률</small><b>{stats?.accuracy??0}%</b></span>
           </div>
+          <p className="gesture-replay">🙌 양손을 어깨 위로 다시 들면 자동 재시작!</p>
           <div className="result-actions">
             <ShareButton game={game} result={{score,maxCombo:stats?.maxCombo??maxCombo}}/>
-            <button className="primary" type="button" onClick={begin} disabled={!detected}>↻ 다시 하기</button>
+            <button className="secondary" type="button" onClick={begin} disabled={!detected}>↻ 버튼으로 다시 하기</button>
             <Link className="secondary" to="/games">다른 게임 보기 →</Link>
           </div>
         </div>}
@@ -428,7 +485,8 @@ export function GameStage({game}: {game: GameDefinition}) {
           {playing ? <>
             <button className="secondary" disabled={quickSettingsOpen} onClick={togglePause}>{paused?"▶ 계속":"Ⅱ 일시정지"}</button>
             <button className="secondary" disabled={quickSettingsOpen} onClick={end}>■ 종료</button>
-          </> : <button className="primary" disabled={!detected} onClick={begin}>▶ {finished?"다시 시작":"게임 시작"}</button>}
+          </> : <button className="secondary gesture-fallback" disabled={!detected || countdown>0 || quickSettingsOpen}
+            onClick={begin}>▶ 버튼으로 시작</button>}
           <button className="secondary" disabled={quickSettingsOpen} onClick={stop}>카메라 끄기</button>
         </>}</div>
       </div>

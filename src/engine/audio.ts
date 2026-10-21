@@ -22,6 +22,7 @@ export class AudioManager {
   private previewMusicGain:GainNode|null=null;
   private playing=false;
   private mutedByPause=false;
+  private finalRush=false;
   private nextNote=0;
   private noteIndex=0;
   private theme:MusicTheme="pop";
@@ -63,12 +64,18 @@ export class AudioManager {
       this.nextNote=0;
     this.applyVolumes();
   }
-  /** Must be called from a user gesture to satisfy browser autoplay rules. */
+  /** Prime browser audio during the camera permission click for later hands-free starts. */
+  unlock(){const ctx=this.ensureContext();if(ctx)void ctx.resume().catch(()=>{});}
+  setFinalRush(active:boolean){
+    if(this.finalRush===active)return;
+    this.finalRush=active;this.nextNote=0;
+  }
+  /** Start a primed audio session after the hands-free countdown. */
   start(theme:MusicTheme="pop"){
     const ctx=this.ensureContext();
     if(!ctx)return;
     void ctx.resume().catch(()=>{});
-    this.theme=theme;this.playing=true;this.mutedByPause=false;
+    this.theme=theme;this.playing=true;this.mutedByPause=false;this.finalRush=false;
     this.nextNote=0;this.noteIndex=0;this.applyVolumes();
   }
   pause(){
@@ -82,14 +89,14 @@ export class AudioManager {
     this.applyVolumes();
   }
   stopMusic(){
-    this.playing=false;this.nextNote=0;
+    this.playing=false;this.nextNote=0;this.finalRush=false;
     this.gainTo(this.musicGain,0);
   }
   update(){
     const ctx=this.context;
     if(!ctx||ctx.state!=="running"||!this.playing||this.mutedByPause||
       !this.prefs.musicEnabled||this.prefs.musicVolume<=0)return;
-    const beatLength=this.theme==="rhythm"?0.24:0.28;
+    const beatLength=(this.theme==="rhythm"?0.24:0.28)/(this.finalRush?1.22:1);
     if(!this.nextNote || this.nextNote<ctx.currentTime-0.12)this.nextNote=ctx.currentTime+0.025;
     let scheduled=0;
     while(this.nextNote<ctx.currentTime+0.13 && scheduled++<3){
@@ -160,7 +167,7 @@ export class AudioManager {
     osc.onended=()=>{osc.disconnect();gain.disconnect();};
   }
   destroy(){
-    this.playing=false;this.nextNote=0;
+    this.playing=false;this.nextNote=0;this.finalRush=false;
     const previous=this.context;
     this.context=null;
     this.musicGain?.disconnect();this.fxGain?.disconnect();this.previewMusicGain?.disconnect();

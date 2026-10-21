@@ -203,3 +203,27 @@
 .share-control button{white-space:nowrap}
 .share-notice{position:absolute;bottom:calc(100% + 5px);right:0;z-index:30;width:max-content;max-width:min(270px,85vw);white-space:normal;padding:8px 11px;border-radius:8px;border:1px solid #4b7369;background:#132d31;color:#bffbe7;font-size:12px;line-height:1.4;box-shadow:0 8px 20px #0007}
 @media(max-width:600px){.card-share-actions{gap:5px}.card-share-button{padding:9px 7px;font-size:11px}}
+
+/* Shared hands-free start and 30-second final-rush feedback. */
+.gesture-guide{position:absolute;z-index:3;left:50%;bottom:18px;transform:translateX(-50%);
+  width:min(340px,calc(100% - 32px));border:1px solid #83efd2aa;border-radius:13px;
+  background:#0c1c30ed;box-shadow:0 6px 24px #0007;text-align:center;
+  padding:13px 17px;display:flex;flex-direction:column;gap:5px;pointer-events:none}
+.gesture-guide strong{font-size:clamp(14px,2.3vw,19px);color:#e9fff8}
+.gesture-guide span{font-size:12px;color:#b5dbd5}
+.gesture-meter{height:6px;background:#2e4055;border-radius:8px;overflow:hidden;margin-top:6px}
+.gesture-meter i{display:block;background:#80f7d4;height:100%;border-radius:8px;transition:width .1s}
+.gesture-count-in{position:absolute;inset:0;z-index:5;pointer-events:none;
+  background:#08152485;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gesture-count-in strong{font-size:clamp(90px,22vw,180px);font-weight:950;line-height:1;
+  color:#a4ffe4;text-shadow:0 0 28px #12c89a}
+.gesture-count-in span{font-size:19px;font-weight:900}
+.final-rush-label{position:absolute;z-index:3;pointer-events:none;top:77px;left:50%;
+  transform:translateX(-50%);border:1px solid #faac8d8f;padding:6px 13px;border-radius:30px;
+  background:#56232dcf;color:#ffe7c3;font-size:13px;font-weight:900;letter-spacing:1px}
+.game-hud .hud-timer.urgency{animation:timer-urgent .55s ease-in-out infinite alternate}
+@keyframes timer-urgent{to{box-shadow:0 0 15px #ff947a66}}
+.result.game-result .gesture-replay{font-size:12px;letter-spacing:0;color:#bdf9dd;margin:1px}
+.gesture-fallback{font-size:11px;opacity:.8}
+@media(max-width:600px){.gesture-guide{bottom:9px;padding:9px 11px}.final-rush-label{top:59px;font-size:10px;padding:4px 9px}}
+@media(prefers-reduced-motion:reduce){.game-hud .hud-timer.urgency{animation:none}}

@@ -1,4 +1,5 @@
 import {coverRect,type Landmark,type Point,type Viewport} from "../core.ts";
+import {ROUND_DURATION_SECONDS,gameplaySpeed} from "../engine/round-tempo.ts";
 import type {GameEvent} from "../engine/game-feel";
 import {createBalloonRound,stepBalloonRound,type BalloonRound} from "./balloon-pop/game.ts";
 import {createFruitRound,fruitCameraBox,stepFruitRound,type FruitRound} from "./fruit-catch/game.ts";
@@ -15,7 +16,7 @@ export type GameRound =
   | {kind:AdvancedGameId;state:AdvancedRound}
   | {kind:ExpertGameId;state:ExpertRound};
 export type GameState=GameRound["state"];
-export const GAME_SECONDS=60;
+export const GAME_SECONDS=ROUND_DURATION_SECONDS;
 export function createGameRound(id:string):GameRound {
   switch(id){
     case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound()};
@@ -63,16 +64,17 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
 }
 export function stepGameRound(round:GameRound,dt:number,width:number,height:number,
   points:Point[],pose:readonly Landmark[]|undefined,view:Viewport):{finished:boolean;events:GameEvent[]} {
+  const speed=gameplaySpeed(round.state.time);
   switch(round.kind){
-    case "balloon-pop":return stepBalloonRound(round.state,dt,width,height,points);
-    case "fruit-catch":return stepFruitRound(round.state,dt,width,height,basketInput(points,view));
-    case "pose-challenge":return stepPoseRound(round.state,dt,pose,width,height);
+    case "balloon-pop":return stepBalloonRound(round.state,dt,width,height,points,speed);
+    case "fruit-catch":return stepFruitRound(round.state,dt,width,height,basketInput(points,view),undefined,speed);
+    case "pose-challenge":return stepPoseRound(round.state,dt,pose,width,height,speed);
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
-      return stepMiniRound(round.state,dt,width,height,points);
+      return stepMiniRound(round.state,dt,width,height,points,undefined,speed);
     case "rhythm-pads":case "shield-guard":case "memory-sequence":case "laser-lane":case "parcel-sort":
-      return stepAdvancedRound(round.state,dt,width,height,points);
+      return stepAdvancedRound(round.state,dt,width,height,points,undefined,speed);
     case "boss-raid":case "gravity-lab":case "shadow-sync":case "constellation-trace":case "dual-portals":
-      return stepExpertRound(round.state,dt,width,height,points);
+      return stepExpertRound(round.state,dt,width,height,points,undefined,speed);
   }
 }
 export function gameHint(id:string){
