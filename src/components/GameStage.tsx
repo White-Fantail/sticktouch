@@ -252,7 +252,8 @@ export function GameStage({game}: {game: GameDefinition}) {
               const feedback=feelRef.current.dispatch(event,scoreMultiplier(g.time));
               if(!feedback)continue;
               effectsRef.current.emit(feedback,reducedMotionRef.current?"off":s.effectsQuality);
-              audioRef.current.cue(feedback.milestone?"milestone":feedback.type);
+              if(!audioRef.current.cueCreative(feedback))audioRef.current.cue(feedback.milestone?"milestone":feedback.type);
+              else if(feedback.milestone)audioRef.current.cue("milestone");
             }
             const snapshot=feelRef.current.stats;
             g.score=snapshot.score;
