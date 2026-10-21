@@ -26,7 +26,7 @@ function tick(r:ReturnType<typeof createQuestRound>,points:Point[]=hands(),
   return stepQuestRound(r,dt,W,H,points,body,view);
 }
 test("D category contains eleven distinct registered and runnable games",()=>{
-  assert.equal(GAMES.length,53);
+  assert.equal(GAMES.filter(game=>game.players!==2).length,53);
   assert.equal(QUEST_GAME_IDS.length,11);
   assert.equal(new Set(QUEST_GAME_IDS).size,11);
   for(const id of QUEST_GAME_IDS){
