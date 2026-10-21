@@ -1,7 +1,14 @@
-import {hitBalloons,newBalloon,stepBalloons,type Balloon,type Point} from "../../core.ts";
+import {circlesOverlap,newBalloon,stepBalloons,type Balloon,type Point,type BodyPart} from "../../core.ts";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 import type {GameEvent} from "../../engine/game-feel";
 
+/** Palette is indexed by balloon.id % 4 in core.newBalloon. */
+export const BUBBLE_PART_RULES:readonly {label:string;parts:readonly BodyPart[];color:string}[]=[
+  {label:"왼손",parts:["leftHand"],color:"#ffbe6b"},
+  {label:"양발",parts:["leftFoot","rightFoot"],color:"#60dbff"},
+  {label:"머리",parts:["head"],color:"#ef91ff"},
+  {label:"오른손",parts:["rightHand"],color:"#80f5b9"}
+];
 export type BalloonRound={
   playing:boolean;
   paused:boolean;
@@ -31,14 +38,27 @@ export function stepBalloonRound(round:BalloonRound,delta:number,width:number,he
   const moved=stepBalloons(previous,dt*speed,width,height);
   const live=new Set(moved.map(ball=>ball.id));
   const missed=previous.filter(ball=>!live.has(ball.id));
-  const hit=hitBalloons(moved,points,["leftHand","rightHand","leftFoot","rightFoot","head"]);
-  round.balls=hit.remaining;
   const events:GameEvent[]=[
     ...missed.map(ball=>({id:"balloon:miss:"+ball.id,type:"miss" as const,
-      targetId:String(ball.id),position:{x:ball.x,y:ball.y}})),
-    ...hit.hits.map(ball=>({id:"balloon:hit:"+ball.id,type:"hit" as const,
-      targetId:String(ball.id),basePoints:10,position:{x:ball.x,y:ball.y},color:ball.color}))
+      targetId:String(ball.id),position:{x:ball.x,y:ball.y}}))
   ];
+  const remaining:Balloon[]=[];
+  let hits=0;
+  for(const ball of moved){
+    const rule=BUBBLE_PART_RULES[ball.id% BUBBLE_PART_RULES.length];
+    const touching=points.filter(p=>circlesOverlap(p,ball));
+    if(!touching.length){remaining.push(ball);continue;}
+    const valid=touching.find(p=>rule.parts.includes(p.part));
+    if(valid){
+      hits++;
+      events.push({id:"balloon:hit:"+ball.id,type:"hit",targetId:String(ball.id),
+        basePoints:14,bodyPart:valid.part,position:{x:ball.x,y:ball.y},color:ball.color});
+    }else{
+      events.push({id:"balloon:wrong:"+ball.id,type:"miss",targetId:String(ball.id),
+        position:{x:ball.x,y:ball.y},color:ball.color});
+    }
+  }
+  round.balls=remaining;
   if(round.time<=0)round.playing=false;
-  return {hits:hit.hits.length,finished:round.time<=0,events};
+  return {hits,finished:round.time<=0,events};
 }
