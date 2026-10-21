@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { FilesetResolver, HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
+import type { HandLandmarker, PoseLandmarker } from "@mediapipe/tasks-vision";
+import {loadCameraModels} from "../tracking/models";
 import { matchHandPalms } from "../hands";
 import {getHitpoints, smoothHitpoints, type Landmark, type Point, type Viewport} from "../core";
 import {type CameraSide, type AppSettings} from "../settings/settings";
@@ -20,9 +21,6 @@ import {COUNT_IN_SECONDS,FINAL_RUSH_SECONDS,ROUND_DURATIONS,scoreMultiplier,rule
 
 
 type Phase = "idle" | "loading" | "ready" | "error";
-const MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const HAND_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
-const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
 const INITIAL_MESSAGE = "카메라를 시작하면 몸의 움직임을 실시간으로 인식합니다.";
 
 export function GameStage({game}: {game: GameDefinition}) {
@@ -135,34 +133,11 @@ export function GameStage({game}: {game: GameDefinition}) {
       if(!video)throw Error("Video element unavailable");
       video.srcObject=stream;video.muted=true;video.playsInline=true;
       await video.play();
-      const vision=await FilesetResolver.forVisionTasks(WASM);
-      try{
-        detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL,delegate:"GPU"},runningMode:"VIDEO",numPoses:1});
-      }catch{
-        detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:MODEL,delegate:"CPU"},runningMode:"VIDEO",numPoses:1});
-      }
-      if(token!==sessionRef.current){detector.close();return;}
-      trackerRef.current=detector;
-      // Hand tracking is optional: a model/network/GPU failure must not break Pose.
-      try {
-        try {
-          handDetector=await HandLandmarker.createFromOptions(vision,{
-            baseOptions:{modelAssetPath:HAND_MODEL,delegate:"GPU"},
-            runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:0.55,
-            minHandPresenceConfidence:0.55,minTrackingConfidence:0.5
-          });
-        } catch {
-          handDetector=await HandLandmarker.createFromOptions(vision,{
-            baseOptions:{modelAssetPath:HAND_MODEL,delegate:"CPU"},
-            runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:0.55,
-            minHandPresenceConfidence:0.55,minTrackingConfidence:0.5
-          });
-        }
-      } catch(error) {
-        console.warn("Hand model unavailable, using Pose palm estimate",error);
-      }
-      if(token!==sessionRef.current){handDetector?.close();detector.close();return;}
-      handTrackerRef.current=handDetector;
+      // Shared loader keeps legacy games single-player (1 pose + 2 hands).
+      const models=await loadCameraModels(1);
+      detector=models.pose;handDetector=models.hand;
+      if(token!==sessionRef.current){detector.close();handDetector?.close();return;}
+      trackerRef.current=detector;handTrackerRef.current=handDetector;
       setHandModelStatus(handDetector?"ready":"fallback");
       setPhase("ready");setMessage("카메라 연결됨 · 화면에 몸이 보이도록 서 주세요.");
       let last=performance.now(),lastPoseInference=0,lastHandInference=0,lastVideoTime=-1;

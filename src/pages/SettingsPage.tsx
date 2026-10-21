@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {useSettings} from "../settings/SettingsContext";
+import {Link} from "../app/navigation";
 import {type DisplayMode} from "../settings/settings";
 type Tab = "display" | "camera" | "game" | "advanced";
 const TABS: {id: Tab; name:string}[] = [
@@ -40,6 +41,7 @@ export function SettingsPage() {
           <div className="setting-group"><div className="setting-line"><label htmlFor="preciseHands">손바닥 정밀 추적</label>
             <input type="checkbox" id="preciseHands" checked={settings.preciseHands} onChange={e=>update({preciseHands:e.target.checked})}/></div>
             <p>ON은 Hand 모델을 우선 사용하며, OFF에서도 Pose가 손바닥 위치를 추정해요.</p></div>
+          <div className="setting-group"><label>2인용 인식 기반</label><p>기존 게임은 1명으로 유지하면서, 별도의 화면에서 두 사람의 관절과 손 추적을 시험할 수 있어요.</p><Link className="secondary duo-settings-link" to="/players">2인 인식 테스트 열기 →</Link></div>
           <div className="tip"><b>안전 안내</b><p>게임 전 주변 장애물을 치우고 몸이 화면에 충분히 보이도록 서 주세요. 모바일에서는 가로 화면을 권장해요.</p></div>
         </>}
         {tab==="game" && <>

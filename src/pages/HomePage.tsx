@@ -11,6 +11,7 @@ export function HomePage() {
         <div className="hero-actions">
           <Link className="primary hero-primary" to="/play/balloon-pop">▶ 바로 플레이</Link>
           <Link className="secondary hero-secondary" to="/games">게임 둘러보기 →</Link>
+          <Link className="secondary hero-secondary" to="/players">2인 인식 테스트 →</Link>
         </div>
         <span className="privacy-note">◉ 카메라 영상은 기기에서만 처리 · 업로드나 녹화 없음</span>
       </div>

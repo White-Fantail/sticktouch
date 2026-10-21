@@ -232,3 +232,36 @@
 .gesture-fallback{font-size:11px;opacity:.8}
 @media(max-width:600px){.gesture-guide{bottom:9px;padding:9px 11px}.final-rush-label{top:59px;font-size:10px;padding:4px 9px}}
 @media(prefers-reduced-motion:reduce){.game-hud .hud-timer.urgency{animation:none}}
+
+/* Two-player tracking calibration (no game attached yet). */
+.duo-page .page-intro{margin-bottom:20px}
+.duo-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}
+.duo-stage-wrap,.duo-help{background:#111d33;border:1px solid #354963;border-radius:16px;overflow:hidden}
+.duo-stage-top{padding:15px 17px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
+.duo-stage-top span{color:#a8f7dc;font-size:12px}
+.duo-stage{aspect-ratio:16/9;min-height:300px;position:relative;background:#0d192a;overflow:hidden}
+.duo-stage canvas{width:100%;height:100%;display:block}
+.duo-stage-prompt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:10px;padding:20px;background:#071427dd}
+.duo-stage-prompt strong{font-size:clamp(18px,3vw,26px)}
+.duo-stage-prompt p{font-size:13px;color:#c0cee2;max-width:360px;line-height:1.6}
+.duo-controls{padding:12px 16px;border-top:1px solid #34435b}
+.duo-controls p{color:#bbc9db;font-size:12px;line-height:1.6;margin:0 0 12px}
+.duo-controls .actions a{text-decoration:none}
+.duo-help{padding:18px}
+.duo-help h2{font-size:20px;margin:0 0 17px}
+.duo-person{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 12px;
+  margin-bottom:10px;border-radius:11px;background:#1a2a42;border:1px solid #385069;font-size:13px}
+.duo-person.p1 b{color:#7ef3d7}.duo-person.p2 b{color:#ffabdf}
+.duo-person span{font-size:11px;color:#98a8ba}
+.duo-person.detected{border-color:#78d4bc}.duo-person.detected span{color:#a8f8d9;font-weight:800}
+.duo-instructions{font-size:12px;line-height:1.7;color:#b6c5d9}
+.duo-diagnostics{display:flex;flex-direction:column;gap:7px;border-top:1px solid #334661;
+  padding-top:13px;margin:15px 0;font-size:11px;color:#a5b8d1}
+.duo-diagnostics strong{color:#eaf7ff;font-size:12px}
+.duo-settings-link{display:inline-block;text-decoration:none;margin-top:10px;font-size:12px}
+.duo-footnote{color:#a5b8cd;font-size:12px;line-height:1.7;padding:10px 0}
+@media(max-width:880px){.duo-layout{grid-template-columns:1fr}.duo-help{display:grid;grid-template-columns:1fr 1fr;gap:8px 15px}
+.duo-help h2,.duo-instructions,.duo-diagnostics,.duo-settings-link{grid-column:1/-1}}
+@media(max-width:580px){.duo-stage{aspect-ratio:4/3;min-height:260px}.duo-help{display:block}
+.duo-stage-top{padding:11px 12px}.duo-controls{padding:11px}.duo-person{margin-bottom:8px}}
