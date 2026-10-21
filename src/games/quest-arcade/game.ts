@@ -354,6 +354,7 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
     }
     case "body-programming":{
       if(r.step===0){
+        console.log("quest-branch-debug",r.kind,r.cooldown,r.instructions.length,points.map(p=>p.part));
         r.robot={x:1,y:2};
         if(r.cooldown<=0&&r.instructions.length<3){
           for(const b of COMMAND_BUTTONS){
