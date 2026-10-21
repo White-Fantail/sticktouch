@@ -320,14 +320,15 @@ function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:numbe
 export function stepAdvancedRound(round:AdvancedRound,delta:number,w:number,h:number,points:Point[],
   rand:()=>number=Math.random,speed=1,pose?:readonly Landmark[],view?:Viewport
 ):{finished:boolean;events:GameEvent[]}{
-  if(!round.playing||round.paused)return {finished:false,events:[]};
+  if(!round.playing||round.paused){round.touches.reset();return {finished:false,events:[]};}
   const hands=handsOnly(points);
   const bodyGame=round.kind==="laser-lane"||round.kind==="memory-sequence"||round.kind==="shield-guard";
   const inputOK=round.kind==="rhythm-pads"?points.some(p=>BEAT_PARTS.includes(p.part)):
     bodyGame?!!pose&&!!view&&!!pose[0]&&!!pose[11]&&!!pose[12]&&!!pose[23]&&!!pose[24]:
     hands.length>0;
-  if(!inputOK||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h))
-    return {finished:false,events:[]};
+  if(!inputOK||w<=0||h<=0||!Number.isFinite(w)||!Number.isFinite(h)){
+    round.touches.reset();return {finished:false,events:[]};
+  }
   const dt=clamp(Number.isFinite(delta)?delta:0,0,.08);
   round.time=Math.max(0,round.time-dt);
   const events:GameEvent[]=[];
