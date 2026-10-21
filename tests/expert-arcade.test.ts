@@ -9,7 +9,7 @@ import type {Point} from "../src/core.ts";
 const W=800,H=500;
 const hand=(x:number,y:number,part:Point["part"]="leftHand"):Point=>
   ({x,y,part,radius:12});
-const at=(p:{x:number;y:number},part:"leftHand"|"rightHand"="leftHand")=>
+const at=(p:{x:number;y:number},part:Point["part"]="leftHand")=>
   hand(p.x*W,p.y*H,part);
 const both=[hand(30,440),hand(770,440,"rightHand")];
 const tick=(r:ReturnType<typeof createExpertRound>,dt=.08,points:Point[]=both)=>
