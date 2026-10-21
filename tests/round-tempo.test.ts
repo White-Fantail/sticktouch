@@ -24,7 +24,7 @@ test("all 29 games support shared 30/45/60 modes and their recommendations",()=>
   }
   assert.equal(ROUND_DURATION_SECONDS,45);
   assert.equal(GAMES.filter(g=>g.recommendedSeconds===30).length,3);
-  assert.equal(GAMES.filter(g=>g.recommendedSeconds===60).length,2);
+  assert.equal(GAMES.filter(g=>g.recommendedSeconds===60).length,13);
   assert.notEqual(rulesetForDuration(30),rulesetForDuration(45));
   assert.notEqual(rulesetForDuration(45),rulesetForDuration(60));
 });
