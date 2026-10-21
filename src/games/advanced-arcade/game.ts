@@ -1,4 +1,5 @@
-import {circlesOverlap,type Point} from "../../core.ts";
+import {circlesOverlap,mapPoint,BONES,type Landmark,type Point,type Viewport,type BodyPart} from "../../core.ts";
+import {matchesPose,POSE_SEQUENCE} from "../pose-challenge/game.ts";
 import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 
@@ -7,15 +8,16 @@ export type AdvancedGameId=
 export const ADVANCED_GAME_IDS:readonly AdvancedGameId[]=[
   "rhythm-pads","shield-guard","memory-sequence","laser-lane","parcel-sort"
 ];
-export const BEAT_SPOTS=[{x:.17,y:.76},{x:.39,y:.76},{x:.61,y:.76},{x:.83,y:.76}] as const;
+export const BEAT_SPOTS=[{x:.25,y:.45},{x:.75,y:.45},{x:.28,y:.78},{x:.72,y:.78}] as const;
+export const BEAT_PARTS:readonly BodyPart[]=["leftHand","rightHand","leftFoot","rightFoot"];
 export const MEMORY_SPOTS=[
   {x:.27,y:.40},{x:.73,y:.40},{x:.27,y:.71},{x:.73,y:.71}
 ] as const;
 export const SORT_BINS=[{x:.2,y:.25},{x:.5,y:.25},{x:.8,y:.25}] as const;
 export const SORT_COLORS=["#69dafa","#ffcb73","#cd9dff"] as const;
 export type Note={id:number;lane:number;age:number};
-export type Bolt={id:number;x:number;y:number;vx:number;vy:number;age:number};
-export type Laser={id:number;gap:number;age:number;damaged:boolean};
+export type Bolt={id:number;x:number;y:number;vx:number;vy:number;age:number;reflected?:boolean};
+export type Laser={id:number;gap:number;age:number;damaged:boolean;mode?:"high"|"side"};
 export type Parcel={id:number;kind:number;x:number;y:number;age:number;heldBy:string|null;armed:boolean};
 type MemoryPhase="watch"|"input"|"rest";
 export type AdvancedRound={
@@ -24,6 +26,7 @@ export type AdvancedRound={
   notes:Note[];bolts:Bolt[];
   sequence:number[];memoryPhase:MemoryPhase;memoryIndex:number;memoryLit:number;memoryCorrect:boolean;
   previousPads:Record<string,number>;
+  poseHold:number;poseArmed:boolean;shieldArms:{x:number;y:number;angle:number}[];
   laser:Laser|null;parcel:Parcel|null;
 };
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
@@ -39,7 +42,7 @@ export function createAdvancedRound(kind:AdvancedGameId,seconds=ROUND_DURATION_S
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
     memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
-    previousPads:{},laser:null,parcel:null};
+    previousPads:{},poseHold:0,poseArmed:true,shieldArms:[],laser:null,parcel:null};
 }
 /** A press is entering a pad, not holding a palm over it across frames.
  * Maintain the same history during preview and cooldown as during input. */
@@ -56,30 +59,35 @@ function padPresses(round:AdvancedRound,hands:Point[],
   round.previousPads=next;
   return pressed;
 }
-function stepBeats(round:AdvancedRound,dt:number,hands:Point[],w:number,h:number,
+function stepBeats(round:AdvancedRound,dt:number,points:Point[],w:number,h:number,
   rand:()=>number,events:GameEvent[]){
   round.spawnTime+=dt;
-  while(round.spawnTime>=.73){
-    round.spawnTime-=.73;
-    round.notes.push({id:++round.seq,lane:choose(4,rand),age:0});
+  while(round.spawnTime>=.72){
+    round.spawnTime-=.72;
+    // Rotate through all four limbs; all lanes must be playable, not just hands.
+    round.notes.push({id:++round.seq,lane:(round.seq-1+choose(4,rand))%4,age:0});
   }
   for(const note of round.notes)note.age+=dt;
-  const presses=padPresses(round,hands,BEAT_SPOTS,.086,w,h);
-  for(const press of presses){
-    const possible=round.notes.filter(n=>n.lane===press.pad&&Math.abs(n.age-1.24)<=.28)
+  const next:Record<string,number>={};
+  for(const point of points){
+    const lane=BEAT_PARTS.indexOf(point.part);
+    if(lane<0)continue;
+    next[point.part]=touch(point,BEAT_SPOTS[lane],.095,w,h)?lane:-1;
+    if(next[point.part]!==lane||round.previousPads[point.part]===lane)continue;
+    const possible=round.notes.filter(n=>n.lane===lane&&Math.abs(n.age-1.24)<=.28)
       .sort((a,b)=>Math.abs(a.age-1.24)-Math.abs(b.age-1.24))[0];
     if(!possible)continue;
     const precise=Math.abs(possible.age-1.24)<=.115;
     events.push({id:"beat:hit:"+possible.id,type:precise?"perfect":"good",
       targetId:"beat:"+possible.id,basePoints:precise?25:15,
-      position:position(BEAT_SPOTS[press.pad].x,BEAT_SPOTS[press.pad].y,w,h),
-      color:precise?"#ffe388":"#97f8d0",bodyPart:press.part});
+      position:position(BEAT_SPOTS[lane].x,BEAT_SPOTS[lane].y,w,h),
+      color:precise?"#ffe388":"#97f8d0",bodyPart:point.part});
     round.notes=round.notes.filter(n=>n.id!==possible.id);
   }
+  round.previousPads=next;
   const expired=round.notes.filter(n=>n.age>1.58);
-  for(const note of expired)
-    events.push({id:"beat:miss:"+note.id,type:"miss",targetId:"beat:"+note.id,
-      position:position(BEAT_SPOTS[note.lane].x,BEAT_SPOTS[note.lane].y,w,h)});
+  for(const note of expired)events.push({id:"beat:miss:"+note.id,type:"miss",
+    targetId:"beat:"+note.id,position:position(BEAT_SPOTS[note.lane].x,BEAT_SPOTS[note.lane].y,w,h)});
   round.notes=round.notes.filter(n=>n.age<=1.58);
 }
 function spawnBolt(round:AdvancedRound,rand:()=>number){
