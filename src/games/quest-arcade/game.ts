@@ -258,9 +258,9 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
     }
     case "magic-garden":{
       const x=GARDEN_BEDS[r.stage%3],p1={x,y:.79},p2={x,y:.49};
-      if(r.step===0&&r.touches.contact("seed:"+r.stage,points,pointCircle(p1,.066,w,h),hands)){
+      if(r.step===0&&r.touches.contact("seed:"+r.stage,points,pointCircle(p1,.066,w,h),w,h,hands)){
         r.step=1;r.touches.reset();
-      }else if(r.step===1&&r.touches.contact("water:"+r.stage,points,pointCircle(p2,.066,w,h),hands)){
+      }else if(r.step===1&&r.touches.contact("water:"+r.stage,points,pointCircle(p2,.066,w,h),w,h,hands)){
         r.step=2;r.armed=false;r.hold=0;
       }else if(r.step===2&&pose){
         const lh=part(points,"leftHand"),rh=part(points,"rightHand");
@@ -280,7 +280,7 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
       if(r.step<4){
         const aim=spots[r.step];
         if(r.touches.contact("piece:"+r.stage+":"+r.step,points,
-          pointCircle(aim,.073,w,h),hands)){
+          pointCircle(aim,.073,w,h),w,h,hands)){
           r.pieces++;r.step++;r.touches.reset();r.phase=0;
         }
         if(r.phase>4.1)fail(r,events,w,h);
@@ -354,17 +354,15 @@ export function stepQuestRound(r:QuestRound,delta:number,w:number,h:number,
     }
     case "body-programming":{
       if(r.step===0){
-        console.log("quest-branch-debug",r.kind,r.cooldown,r.instructions.length,points.map(p=>p.part),COMMAND_BUTTONS.length);
         r.robot={x:1,y:2};
         if(r.cooldown<=0&&r.instructions.length<3){
           for(const b of COMMAND_BUTTONS){
             if(r.touches.contact("cmd:"+r.stage+":"+r.instructions.length+":"+b.name,
-              points,pointCircle(b,.063,w,h),hands)){
+              points,pointCircle(b,.063,w,h),w,h,hands)){
               r.instructions.push(b.name);r.touches.reset();r.cooldown=.16;break;
             }
           }
         }
-        console.log("quest-after-loop",r.instructions,(r.touches as unknown as {entries:Map<string,unknown>}).entries.size);
         if(r.instructions.length===3){r.step=1;r.execution=0;r.phase=0;}
         if(r.phase>9)fail(r,events,w,h);
       }else{
