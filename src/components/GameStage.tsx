@@ -7,6 +7,7 @@ import {QuickSettingsOverlay} from "./QuickSettingsOverlay";
 import {pauseForSettings,restoreAfterSettings} from "../engine/quick-pause";
 import {useSettings} from "../settings/SettingsContext";
 import {Link} from "../app/navigation";
+import {ShareButton} from "./ShareButton";
 import {type GameDefinition} from "../games/registry";
 import {createGameRound,stepGameRound,gameViewport,gameTracking,gameHint,GAME_SECONDS} from "../games/runtime";
 import {paintGameScene} from "../engine/game-scenes";
@@ -355,6 +356,7 @@ export function GameStage({game}: {game: GameDefinition}) {
     <div className="play-topbar">
       <Link to="/games" className="play-exit" aria-label="게임 탐색으로 돌아가기"><span>←</span> {game.title}</Link>
       <div className="play-top-actions">
+        <ShareButton game={game}/>
         <button type="button" onClick={()=>setQuickMuted(value=>!value)}
           title={quickMuted?"사운드 켜기":"사운드 잠시 끄기"}
           aria-label={quickMuted?"사운드 켜기":"사운드 잠시 끄기"}>
@@ -409,6 +411,7 @@ export function GameStage({game}: {game: GameDefinition}) {
             <span><small>명중률</small><b>{stats?.accuracy??0}%</b></span>
           </div>
           <div className="result-actions">
+            <ShareButton game={game} result={{score,maxCombo:stats?.maxCombo??maxCombo}}/>
             <button className="primary" type="button" onClick={begin} disabled={!detected}>↻ 다시 하기</button>
             <Link className="secondary" to="/games">다른 게임 보기 →</Link>
           </div>

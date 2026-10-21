@@ -1,4 +1,5 @@
 import {Link} from "../app/navigation";
+import {ShareButton} from "./ShareButton";
 import {CATEGORY_LABELS, type GameDefinition} from "../games/registry";
 export function GameCard({game}: {game: GameDefinition}) {
   const available = game.status === "available";
@@ -12,8 +13,10 @@ export function GameCard({game}: {game: GameDefinition}) {
       <h3>{game.title}</h3><p>{game.tagline}</p>
       <div className="catalog-card-bottom">
         <span className={available ? "availability good" : "availability"}>{available ? "● 플레이 가능" : "○ 준비 중"}</span>
-        {available ? <Link className="card-play-link" to={`/play/${game.id}`}>플레이 →</Link>
-          : <span className="card-coming">출시 예정</span>}
+        {available ? <div className="card-share-actions">
+            <ShareButton game={game} className="card-share-button"/>
+            <Link className="card-play-link" to={`/play/${game.id}`}>플레이 →</Link>
+          </div> : <span className="card-coming">출시 예정</span>}
       </div>
     </div>
   </article>;

@@ -194,3 +194,12 @@
 .game-art--star{background:radial-gradient(circle at 50% 20%,#6c5aab,#202a54 70%)}
 .game-art--meteor{background:radial-gradient(circle at 40% 28%,#a4543f,#362b47 70%)}
 .game-art--freeze{background:radial-gradient(circle at 60% 20%,#4d91b3,#2d4669 70%)}
+
+/* Plain-text game/result sharing: no score route, database or generated OG images. */
+.card-share-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.card-share-button{border:1px solid #405a73;border-radius:9px;color:#d8f4eb;background:#1b2f45;font-size:12px;font-weight:800;padding:9px 10px}
+.card-share-button:hover{background:#294a5d}
+.share-control{position:relative;display:inline-flex;align-items:center;flex-shrink:0}
+.share-control button{white-space:nowrap}
+.share-notice{position:absolute;bottom:calc(100% + 5px);right:0;z-index:30;width:max-content;max-width:min(270px,85vw);white-space:normal;padding:8px 11px;border-radius:8px;border:1px solid #4b7369;background:#132d31;color:#bffbe7;font-size:12px;line-height:1.4;box-shadow:0 8px 20px #0007}
+@media(max-width:600px){.card-share-actions{gap:5px}.card-share-button{padding:9px 7px;font-size:11px}}
