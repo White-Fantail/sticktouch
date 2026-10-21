@@ -92,6 +92,7 @@ test("programming records three real commands and executes grid movement",()=>{
     tick(r,hands(goal.x,goal.y,.93,.85));
     tick(r,hands(.07,.13,.94,.86));
     tick(r,hands(.07,.13,.94,.86));
+    console.log("quest-program-debug",goal,r.stage,r.step,r.phase,r.instructions);
   }
   assert.deepEqual(r.instructions,PROGRAMS[0]);
   assert.equal(r.step,1);
