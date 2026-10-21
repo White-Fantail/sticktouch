@@ -17,10 +17,10 @@ export const POSE_TARGET_SECONDS=1.44;
 export const POSE_DURATION_SECONDS=ROUND_DURATION_SECONDS;
 export type PoseRound={
   playing:boolean;paused:boolean;score:number;time:number;
-  step:number; hold:number;targetTime:number; tracking:boolean; scored:boolean;
+  step:number; hold:number;targetTime:number; tracking:boolean; scored:boolean;armed:boolean;
 };
 export function createPoseRound(seconds=POSE_DURATION_SECONDS):PoseRound {
-  return {playing:false,paused:false,score:0,time:seconds,step:0,hold:0,targetTime:0,tracking:false,scored:false};
+  return {playing:false,paused:false,score:0,time:seconds,step:0,hold:0,targetTime:0,tracking:false,scored:false,armed:false};
 }
 export function poseTarget(round:PoseRound){return POSE_SEQUENCE[round.step%POSE_SEQUENCE.length];}
 function visible(p:Landmark|undefined):p is Landmark {
@@ -81,7 +81,8 @@ export function stepPoseRound(round:PoseRound,delta:number,pose:readonly Landmar
   const dt=Math.max(0,Math.min(0.08,delta));
   round.time=Math.max(0,round.time-dt);
   round.targetTime+=dt*speed;
-  round.hold=match?round.hold+dt*speed:0;
+  if(!match)round.armed=true;
+  round.hold=match&&round.armed?round.hold+dt*speed:0;
   const events:GameEvent[]=[];
   // A dance step remains visible through the full beat, even after success.
   // This creates a continuous choreography instead of clearing a static pose on contact.
@@ -98,7 +99,7 @@ export function stepPoseRound(round:PoseRound,delta:number,pose:readonly Landmar
       position:{x:width*.5,y:height*.42}});
     round.step++;
     round.targetTime%=POSE_TARGET_SECONDS;
-    round.hold=0;round.scored=false;
+    round.hold=0;round.scored=false;round.armed=false;
   }
   if(round.time<=0)round.playing=false;
   return {finished:round.time<=0,events};
