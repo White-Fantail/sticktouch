@@ -2,6 +2,7 @@ import {circlesOverlap,mapPoint,BONES,type Landmark,type Point,type Viewport,typ
 import {matchesPose,POSE_SEQUENCE} from "../pose-challenge/game.ts";
 import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
+import {TouchEntries,touchCircle} from "../../engine/touch-entry.ts";
 
 export type AdvancedGameId=
   |"rhythm-pads"|"shield-guard"|"memory-sequence"|"laser-lane"|"parcel-sort";
@@ -28,6 +29,7 @@ export type AdvancedRound={
   previousPads:Record<string,number>;
   poseHold:number;wrongHold:number;poseArmed:boolean;shieldArms:{x:number;y:number;angle:number}[];
   laser:Laser|null;parcel:Parcel|null;
+  touches:TouchEntries;
 };
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
 const handsOnly=(points:readonly Point[])=>points.filter(p=>
@@ -42,7 +44,8 @@ export function createAdvancedRound(kind:AdvancedGameId,seconds=ROUND_DURATION_S
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     phaseTime:0,spawnTime:0,wait:0,notes:[],bolts:[],sequence:[],
     memoryPhase:"watch",memoryIndex:0,memoryLit:-1,memoryCorrect:false,
-    previousPads:{},poseHold:0,wrongHold:0,poseArmed:true,shieldArms:[],laser:null,parcel:null};
+    previousPads:{},poseHold:0,wrongHold:0,poseArmed:false,shieldArms:[],laser:null,parcel:null,
+    touches:new TouchEntries()};
 }
 /** A press is entering a pad, not holding a palm over it across frames.
  * Maintain the same history during preview and cooldown as during input. */
@@ -73,7 +76,8 @@ function stepBeats(round:AdvancedRound,dt:number,points:Point[],w:number,h:numbe
     const lane=BEAT_PARTS.indexOf(point.part);
     if(lane<0)continue;
     next[point.part]=touch(point,BEAT_SPOTS[lane],.095,w,h)?lane:-1;
-    if(next[point.part]!==lane||round.previousPads[point.part]===lane)continue;
+    if(!round.touches.contact("pad:"+lane,[point],
+      touchCircle(BEAT_SPOTS[lane],.095,w,h),w,h,[point.part]))continue;
     const possible=round.notes.filter(n=>n.lane===lane&&Math.abs(n.age-1.24)<=.28)
       .sort((a,b)=>Math.abs(a.age-1.24)-Math.abs(b.age-1.24))[0];
     if(!possible)continue;
@@ -156,7 +160,7 @@ function beginMemorySequence(round:AdvancedRound,rand:()=>number,extend:boolean)
   if(!extend)round.sequence=[choose(POSE_SEQUENCE.length,rand),choose(POSE_SEQUENCE.length,rand)];
   else round.sequence.push(choose(POSE_SEQUENCE.length,rand));
   round.memoryPhase="watch";round.phaseTime=0;round.memoryIndex=0;
-  round.memoryLit=-1;round.memoryCorrect=false;round.poseHold=0;round.wrongHold=0;round.poseArmed=true;
+  round.memoryLit=-1;round.memoryCorrect=false;round.poseHold=0;round.wrongHold=0;round.poseArmed=false;
 }
 function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undefined,
   w:number,h:number,rand:()=>number,events:GameEvent[]){
@@ -169,7 +173,7 @@ function stepMemory(round:AdvancedRound,dt:number,pose:readonly Landmark[]|undef
       ?round.sequence[idx]:-1;
     if(round.phaseTime>=.4+round.sequence.length*.74){
       round.memoryPhase="input";round.phaseTime=0;round.memoryLit=-1;
-      round.poseArmed=true;round.poseHold=0;round.wrongHold=0;
+      round.poseArmed=false;round.poseHold=0;round.wrongHold=0;
     }
     return;
   }
@@ -281,7 +285,8 @@ function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:numbe
   if(parcel.heldBy){
     if(owner){
       parcel.x=clamp(owner.x/w,.045,.955);parcel.y=clamp(owner.y/h,.10,.94);
-      const dest=SORT_BINS.findIndex(bin=>touch(owner,bin,.093,w,h));
+      const dest=SORT_BINS.findIndex((bin,i)=>!!round.touches.contact(
+        "parcel:"+parcel.id+":bin:"+i,[owner],touchCircle(bin,.093,w,h),w,h,[owner.part]));
       if(dest>=0){
         const correct=dest===parcel.kind;
         events.push({id:"parcel:deliver:"+parcel.id,type:correct?"collect":"miss",
@@ -295,9 +300,14 @@ function stepParcel(round:AdvancedRound,dt:number,hands:Point[],w:number,h:numbe
       parcel.heldBy=null;parcel.armed=false;parcel.x=.5;parcel.y=.72;
     }
   }else{
-    const touching=hands.find(p=>touch(p,parcel,.065,w,h));
-    if(!touching)parcel.armed=true;
-    else if(parcel.armed)parcel.heldBy=touching.part;
+    const entering=round.touches.contact("parcel:"+parcel.id+":pickup",
+      hands,touchCircle(parcel,.065,w,h),w,h,["leftHand","rightHand"]);
+    if(entering){
+      parcel.heldBy=entering.part;
+      // Prime destination pads away from the parcel before it starts moving.
+      SORT_BINS.forEach((bin,i)=>round.touches.contact(
+        "parcel:"+parcel.id+":bin:"+i,[entering],touchCircle(bin,.093,w,h),w,h,[entering.part]));
+    }
   }
   if(round.parcel&&parcel.age>=9){
     events.push({id:"parcel:expired:"+parcel.id,type:"miss",targetId:"parcel:"+parcel.id,
