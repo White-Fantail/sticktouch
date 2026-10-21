@@ -1,5 +1,5 @@
 import type {ExpertRound,Spot} from "./game";
-import {MAZE_WALLS,TRACE_PATTERNS,shadowTargets,portalTargets} from "./game";
+import {MAZE_WALLS,TRACE_PATTERNS,TRACE_DIRECTIONS,shadowTargets,portalTargets} from "./game";
 
 const palette=["#79eedc","#ffdc86","#c5a4ff","#ff9aa2","#8dc9ff"];
 function circle(ctx:CanvasRenderingContext2D,p:Spot,w:number,h:number,r:number,fill:string,stroke="#fff"){
@@ -68,7 +68,10 @@ export function paintExpertScene(ctx:CanvasRenderingContext2D,r:ExpertRound,w:nu
       ctx.shadowColor="#9ce7ff";ctx.shadowBlur=15;
       circle(ctx,m.ball,w,h,.032,"#d6f5ff","#fff");ctx.shadowBlur=0;
       caption(ctx,"🧲 중력 미로 · LEVEL "+m.level,
-        "양손 기울기로 좌우, 두 손 높이로 상하 이동",w,h);
+        "양손 기울여 좌우 ↔ · 함께 올리고 내려 상하 ↕",w,h);
+      const xArrow=m.input.x>.14?"→":m.input.x<-.14?"←":"·";
+      const yArrow=m.input.y>.14?"↓":m.input.y<-.14?"↑":"·";
+      text(ctx,"조작 "+xArrow+" "+yArrow,w*.5,h*.95,Math.max(12,s*.03),"#a5f5ed");
       break;
     }
     case "shadow-sync":{
@@ -107,8 +110,8 @@ export function paintExpertScene(ctx:CanvasRenderingContext2D,r:ExpertRound,w:nu
         ctx.shadowBlur=0;text(ctx,String(i+1),p.x*w,p.y*h,Math.max(15,s*.044),
           active?"#273746":"#ffffff");
       });
-      caption(ctx,"🌌 별자리 그리기 · LEVEL "+t.level,
-        "한 손으로 1번부터 순서대로 별을 이어 보세요",w,h);
+      caption(ctx,"🌌 별자리 그리기 · LEVEL "+t.level+" "+TRACE_DIRECTIONS[t.pattern],
+        "시작 방향이 바뀝니다! 편한 손으로 1번부터 이어 보세요",w,h);
       text(ctx,"진행 "+t.index+" / "+nodes.length,w*.5,h*.91,15,"#fff0b2");
       break;
     }

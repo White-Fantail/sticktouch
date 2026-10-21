@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {createExpertRound,stepExpertRound,EXPERT_GAME_IDS,TRACE_PATTERNS,
-  shadowTargets,portalTargets} from "../src/games/expert-arcade/game.ts";
+  shadowTargets,portalTargets,mazeWallCollision} from "../src/games/expert-arcade/game.ts";
 import {createGameRound,gameTracking,gameHint,stepGameRound} from "../src/games/runtime.ts";
 import {GAMES} from "../src/games/registry.ts";
 import type {Point} from "../src/core.ts";
@@ -119,4 +119,67 @@ test("all five expert rounds finish once and do not continue after expiry",()=>{
     assert.equal(tick(r).finished,true,id);
     assert.equal(tick(r).finished,false,id);
   }
+});
+
+test("gravity maze calibrates from the player's initial hand height",()=>{
+  const r=createExpertRound("gravity-lab",15);r.playing=true;
+  const neutral=[at({x:.2,y:.68}),at({x:.8,y:.68},"rightHand")];
+  tick(r,.08,neutral);
+  assert.equal(r.maze.neutralY,.68);
+  assert.equal(r.maze.input.y,0);
+  tick(r,.08,[at({x:.2,y:.49}),at({x:.8,y:.49},"rightHand")]);
+  assert.ok(r.maze.input.y<-.5);
+  assert.ok(r.maze.vy<0);
+  tick(r,.08,[at({x:.2,y:.44}),at({x:.8,y:.72},"rightHand")]);
+  assert.ok(r.maze.input.x>.5);
+  assert.ok(r.maze.vx>0);
+});
+test("gravity maze slides along walls without tunnelling or freezing both axes",()=>{
+  const r=createExpertRound("gravity-lab",15);r.playing=true;
+  r.maze.neutralY=.5;
+  r.maze.ball={x:.29,y:.46};r.maze.vx=.6;r.maze.vy=.20;
+  const tilt=[at({x:.2,y:.30}),at({x:.8,y:.70},"rightHand")];
+  for(let i=0;i<8;i++){
+    tick(r,.08,tilt);
+    assert.equal(
+      (r.maze.ball.x*W>=.35*W && r.maze.ball.x*W<=.405*W &&
+        r.maze.ball.y*H>=.28*H && r.maze.ball.y*H<=.68*H),
+      false);
+  }
+  assert.ok(r.maze.ball.y>.46,"vertical motion should slide along the blocked x axis");
+  assert.ok(r.maze.ball.x<.35);
+});
+test("gravity maze remains collision-safe under rush speed and narrow viewport",()=>{
+  const w=360,h=700,r=createExpertRound("gravity-lab",15);r.playing=true;
+  r.maze.neutralY=.5;r.maze.ball={x:.27,y:.46};
+  r.maze.vx=.6;r.maze.vy=.5;
+  for(let i=0;i<20;i++){
+    stepExpertRound(r,.08,w,h,[
+      {x:w*.15,y:h*.31,part:"leftHand",radius:12},
+      {x:w*.85,y:h*.69,part:"rightHand",radius:12}
+    ],()=>0,1.25);
+    assert.ok(r.maze.ball.x>.07 && r.maze.ball.x<.93);
+    assert.ok(r.maze.ball.y>.18 && r.maze.ball.y<.90);
+    assert.equal(mazeWallCollision(r.maze.ball,w,h),false,"ball entered a wall");
+  }
+});
+test("trace alternates left, right, upward and downward starts across levels",()=>{
+  assert.ok(TRACE_PATTERNS.length>=8);
+  const directions=TRACE_PATTERNS.slice(0,4).map(nodes=>{
+    const first=nodes[0],last=nodes[nodes.length-1];
+    return Math.abs(last.x-first.x)>Math.abs(last.y-first.y)
+      ?(last.x>first.x?"right":"left"):(last.y>first.y?"down":"up");
+  });
+  assert.deepEqual(directions,["right","left","up","down"]);
+  const starts=new Set(TRACE_PATTERNS.map(nodes=>
+    Math.round(nodes[0].x*100)+":"+Math.round(nodes[0].y*100)));
+  assert.ok(starts.size>=6);
+  const r=createExpertRound("constellation-trace",30);r.playing=true;
+  for(let pattern=0;pattern<4;pattern++){
+    assert.equal(r.trace.pattern,pattern);
+    const nodes=TRACE_PATTERNS[pattern];
+    for(const node of nodes)tick(r,.02,[at(node,pattern%2?"rightHand":"leftHand")]);
+  }
+  assert.equal(r.trace.level,5);
+  assert.equal(r.trace.pattern,4);
 });

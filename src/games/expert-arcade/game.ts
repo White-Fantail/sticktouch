@@ -7,17 +7,26 @@ export const EXPERT_GAME_IDS:readonly ExpertGameId[]=[
   "boss-raid","gravity-lab","shadow-sync","constellation-trace","dual-portals"
 ];
 export type Spot={x:number;y:number};
+/** Leave a usable passage between staggered obstacles, including the ball's radius. */
 export const MAZE_WALLS=[
-  {x:.35,y:.28,w:.055,h:.43},{x:.55,y:.54,w:.055,h:.33},
-  {x:.70,y:.13,w:.045,h:.32}
+  {x:.35,y:.28,w:.055,h:.40},{x:.55,y:.59,w:.055,h:.27},
+  {x:.70,y:.13,w:.045,h:.31}
 ] as const;
+/** Eight distinct travel directions; each pattern keeps five well-separated targets. */
 export const TRACE_PATTERNS:readonly (readonly Spot[])[]=[
-  [{x:.18,y:.67},{x:.36,y:.32},{x:.53,y:.64},{x:.72,y:.31},{x:.83,y:.69}],
-  [{x:.20,y:.32},{x:.20,y:.73},{x:.49,y:.73},{x:.78,y:.73},{x:.78,y:.32}],
-  [{x:.18,y:.68},{x:.34,y:.37},{x:.51,y:.68},{x:.67,y:.37},{x:.83,y:.68}]
+  [{x:.18,y:.67},{x:.36,y:.32},{x:.53,y:.64},{x:.72,y:.31},{x:.83,y:.69}], // →
+  [{x:.82,y:.67},{x:.64,y:.32},{x:.47,y:.64},{x:.28,y:.31},{x:.17,y:.69}], // ←
+  [{x:.52,y:.79},{x:.29,y:.62},{x:.70,y:.51},{x:.30,y:.39},{x:.52,y:.22}], // ↑
+  [{x:.52,y:.22},{x:.72,y:.38},{x:.30,y:.50},{x:.72,y:.63},{x:.52,y:.79}], // ↓
+  [{x:.79,y:.77},{x:.74,y:.52},{x:.52,y:.61},{x:.37,y:.34},{x:.19,y:.24}], // ↖
+  [{x:.20,y:.77},{x:.27,y:.49},{x:.50,y:.59},{x:.65,y:.30},{x:.81,y:.24}], // ↗
+  [{x:.80,y:.25},{x:.66,y:.50},{x:.51,y:.36},{x:.35,y:.68},{x:.19,y:.78}], // ↙
+  [{x:.19,y:.24},{x:.35,y:.52},{x:.52,y:.36},{x:.67,y:.66},{x:.81,y:.78}]  // ↘
 ];
+export const TRACE_DIRECTIONS=["→","←","↑","↓","↖","↗","↙","↘"] as const;
 type BossState={health:number;stage:number;age:number;weak:Spot;hit:boolean;touching:boolean;danger:boolean;attackSide:number};
-type MazeState={ball:Spot;vx:number;vy:number;level:number;cooldown:number;hazardTime:number};
+type MazeState={ball:Spot;vx:number;vy:number;level:number;cooldown:number;hazardTime:number;
+  neutralY:number|null;input:Spot};
 type ShadowState={phase:"watch"|"echo"|"rest";age:number;hold:number;seed:number;level:number};
 type TraceState={pattern:number;index:number;owner:string|null;age:number;level:number};
 type PortalState={age:number;hold:number;stage:number;rest:number;armed:boolean};
@@ -43,7 +52,8 @@ const weakspots:readonly Spot[]=[{x:.31,y:.34},{x:.69,y:.34},{x:.5,y:.51}];
 export function createExpertRound(kind:ExpertGameId,seconds=ROUND_DURATION_SECONDS):ExpertRound{
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
     boss:{health:4,stage:1,age:0,weak:weakspots[0],hit:false,touching:false,danger:false,attackSide:0},
-    maze:{ball:{x:.16,y:.78},vx:0,vy:0,level:1,cooldown:0,hazardTime:0},
+    maze:{ball:{x:.16,y:.78},vx:0,vy:0,level:1,cooldown:0,hazardTime:0,
+      neutralY:null,input:{x:0,y:0}},
     shadow:{phase:"watch",age:0,hold:0,seed:0,level:1},
     trace:{pattern:0,index:0,owner:null,age:0,level:1},
     portal:{age:0,hold:0,stage:1,rest:0,armed:true}};
@@ -78,30 +88,51 @@ function bossStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   }
 }
 
+/** Round ball/wall collision in pixel space: aspect ratios must not distort the radius. */
+export function mazeWallCollision(ball:Spot,w:number,h:number):boolean{
+  const radius=.032*Math.min(w,h);
+  return MAZE_WALLS.some(rect=>{
+    const nx=clamp(ball.x*w,rect.x*w,(rect.x+rect.w)*w);
+    const ny=clamp(ball.y*h,rect.y*h,(rect.y+rect.h)*h);
+    return Math.hypot(ball.x*w-nx,ball.y*h-ny)<radius;
+  });
+}
+function steerAxis(input:number):number{
+  const scaled=clamp(input,-1,1),deadzone=.095;
+  return Math.abs(scaled)<=deadzone?0:
+    Math.sign(scaled)*(Math.abs(scaled)-deadzone)/(1-deadzone);
+}
 function mazeStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   events:GameEvent[]){
   const m=r.maze;
   const left=hands.find(p=>p.part==="leftHand");
   const right=hands.find(p=>p.part==="rightHand");
   if(!left||!right)return;
-  const ly=left.y/h,ry=right.y/h;
-  const tilt=clamp((ry-ly)*2.8,-1,1);
-  const vertical=clamp(((ly+ry)*.5-.50)*2.6,-1,1);
-  const damping=Math.exp(-1.7*dt);
-  m.vx=clamp((m.vx+tilt*.68*dt)*damping,-.5,.5);
-  m.vy=clamp((m.vy+vertical*.68*dt)*damping,-.5,.5);
-  const old={...m.ball};
-  const next={x:clamp(old.x+m.vx*dt,.065,.935),y:clamp(old.y+m.vy*dt,.19,.88)};
-  if(next.x===.065||next.x===.935)m.vx*=-.48;
-  if(next.y===.19||next.y===.88)m.vy*=-.48;
-  const radius=.032;
-  const collides=MAZE_WALLS.some(rect=> {
-    const nearX=clamp(next.x,rect.x,rect.x+rect.w);
-    const nearY=clamp(next.y,rect.y,rect.y+rect.h);
-    return Math.hypot((next.x-nearX)*w,(next.y-nearY)*h)<radius*Math.min(w,h);
-  });
-  if(collides){m.vx*=-.55;m.vy*=-.55;}
-  else m.ball=next;
+  const ly=left.y/h,ry=right.y/h,meanY=(ly+ry)*.5;
+  // Calibrate a comfortable neutral pose instead of assuming hands start at screen centre.
+  if(m.neutralY===null)m.neutralY=meanY;
+  const tilt=steerAxis((ry-ly)*3.1);
+  const vertical=steerAxis((meanY-m.neutralY)*4.4);
+  m.input={x:tilt,y:vertical};
+  // Faster acceleration plus stronger damping makes tilting responsive and stoppable.
+  const drag=Math.exp(-3.7*dt);
+  m.vx=clamp(m.vx*drag+tilt*2.15*(1-drag)/3.7,-.60,.60);
+  m.vy=clamp(m.vy*drag+vertical*2.15*(1-drag)/3.7,-.60,.60);
+  const radius=.032*Math.min(w,h),rx=radius/w,ryBall=radius/h;
+  const minX=.07+rx,maxX=.93-rx,minY=.18+ryBall,maxY=.90-ryBall;
+  // Small swept steps prevent tunnelling through thin walls during the 10s rush.
+  const slices=Math.max(1,Math.ceil(Math.hypot(m.vx*dt*w,m.vy*dt*h)/(radius*.42)));
+  const step=dt/slices;
+  for(let i=0;i<slices;i++){
+    const nextX=clamp(m.ball.x+m.vx*step,minX,maxX);
+    if(mazeWallCollision({x:nextX,y:m.ball.y},w,h)||nextX===minX||nextX===maxX){
+      m.vx=0;
+    }else m.ball.x=nextX;
+    const nextY=clamp(m.ball.y+m.vy*step,minY,maxY);
+    if(mazeWallCollision({x:m.ball.x,y:nextY},w,h)||nextY===minY||nextY===maxY){
+      m.vy=0;
+    }else m.ball.y=nextY;
+  }
   m.hazardTime+=dt;m.cooldown=Math.max(0,m.cooldown-dt);
   const hazard={x:.47+Math.sin(m.hazardTime*1.2)*.11,y:.50};
   if(m.cooldown===0 && Math.hypot((m.ball.x-hazard.x)*w,(m.ball.y-hazard.y)*h)<.060*Math.min(w,h)){

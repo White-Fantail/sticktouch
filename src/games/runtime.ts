@@ -92,9 +92,9 @@ export function gameHint(id:string){
     case "laser-lane":return "레이저가 내려오기 전 초록색 안전 틈에 양손을 옮겨 피해 보세요.";
     case "parcel-sort":return "중앙 상자를 손으로 집고, 손을 움직여 같은 색의 배송함에 넣어요.";
     case "boss-raid":return "황금 약점이 열린 순간 손을 새로 넣어 터치해요. 빨간 공격 지역은 피하세요!";
-    case "gravity-lab":return "양손의 높낮이 차로 공을 좌우로, 두 손의 평균 높이로 상하로 굴려 목표에 도달해요.";
+    case "gravity-lab":return "두 손을 편하게 들고 시작하세요. 한쪽 손을 내리면 공이 그쪽으로, 양손을 함께 올리거나 내리면 공이 상하로 움직여요.";
     case "shadow-sync":return "그림자의 움직임을 보고, 양손으로 두 목표를 동시에 따라가며 잠시 유지하세요.";
-    case "constellation-trace":return "한 손으로 별 1 → 2 → 3 → 4 → 5를 순서대로 터치하여 이어 보세요.";
+    case "constellation-trace":return "라운드마다 시작 위치와 방향이 바뀌어요. 왼손·오른손 중 편한 손으로 별 1 → 5를 차례로 이어 보세요.";
     case "dual-portals":return "서로 움직이는 두 포털에 양손을 동시에 놓고 잠시 유지해 에너지를 보내세요.";
     default:return "손·발·머리의 터치 영역으로 풍선을 터뜨려요";
   }
