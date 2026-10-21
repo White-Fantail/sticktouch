@@ -1,6 +1,7 @@
 import {circlesOverlap,type Point,type BodyPart} from "../../core.ts";
 import type {GameEvent} from "../../engine/game-feel";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
+import {TouchEntries,touchCircle} from "../../engine/touch-entry.ts";
 
 export type ExpertGameId="boss-raid"|"gravity-lab"|"shadow-sync"|"constellation-trace"|"dual-portals";
 export const EXPERT_GAME_IDS:readonly ExpertGameId[]=[
@@ -39,15 +40,18 @@ export const TRACE_PART_LABEL:Record<BodyPart,string>={
   leftHand:"왼손",rightHand:"오른손",leftFoot:"왼발",rightFoot:"오른발",head:"머리"
 };
 export const TRACE_DIRECTIONS=["→","←","↑","↓","↖","↗","↙","↘"] as const;
-type BossState={health:number;stage:number;age:number;weak:Spot;hit:boolean;touching:boolean;danger:boolean;attackSide:number};
+type BossState={health:number;stage:number;cycle:number;age:number;weak:Spot;hit:boolean;touching:boolean;danger:boolean;attackSide:number};
 type MazeState={ball:Spot;vx:number;vy:number;level:number;cooldown:number;hazardTime:number;
   neutralY:number|null;input:Spot};
-type ShadowState={phase:"watch"|"echo"|"rest";age:number;hold:number;seed:number;level:number};
+type ShadowState={phase:"watch"|"echo"|"rest";age:number;hold:number;seed:number;level:number;
+  firstPart:string|null;secondPart:string|null};
 type TraceState={pattern:number;index:number;owner:string|null;age:number;level:number};
-type PortalState={age:number;hold:number;stage:number;rest:number;armed:boolean};
+type PortalState={age:number;hold:number;stage:number;rest:number;armed:boolean;
+  firstPart:string|null;secondPart:string|null};
 export type ExpertRound={
   kind:ExpertGameId;playing:boolean;paused:boolean;score:number;time:number;seq:number;
   boss:BossState;maze:MazeState;shadow:ShadowState;trace:TraceState;portal:PortalState;
+  touches:TouchEntries;
 };
 const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v));
 const pick=(n:number,rand:()=>number)=>clamp(Math.floor(rand()*n),0,n-1);
@@ -66,19 +70,22 @@ const weakspots:readonly Spot[]=[{x:.31,y:.34},{x:.69,y:.34},{x:.5,y:.51}];
 
 export function createExpertRound(kind:ExpertGameId,seconds=ROUND_DURATION_SECONDS):ExpertRound{
   return {kind,playing:false,paused:false,score:0,time:seconds,seq:0,
-    boss:{health:4,stage:1,age:0,weak:weakspots[0],hit:false,touching:false,danger:false,attackSide:0},
+    boss:{health:4,stage:1,cycle:0,age:0,weak:weakspots[0],hit:false,touching:false,danger:false,attackSide:0},
     maze:{ball:{x:.16,y:.78},vx:0,vy:0,level:1,cooldown:0,hazardTime:0,
       neutralY:null,input:{x:0,y:0}},
-    shadow:{phase:"watch",age:0,hold:0,seed:0,level:1},
+    shadow:{phase:"watch",age:0,hold:0,seed:0,level:1,firstPart:null,secondPart:null},
     trace:{pattern:0,index:0,owner:null,age:0,level:1},
-    portal:{age:0,hold:0,stage:1,rest:0,armed:true}};
+    portal:{age:0,hold:0,stage:1,rest:0,armed:true,firstPart:null,secondPart:null},
+    touches:new TouchEntries()};
 }
 
 function bossStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   rand:()=>number,events:GameEvent[]){
   const b=r.boss;b.age+=dt;
+  const entry=r.touches.contact("boss:"+b.stage+":"+b.cycle,hands,
+    touchCircle(b.weak,.080,w,h),w,h,["leftHand","rightHand"]);
   const touching=hands.some(p=>within(p,b.weak,.080,w,h));
-  if(b.age>=.78&&b.age<1.95&&!b.hit&&touching&&!b.touching){
+  if(b.age>=.78&&b.age<1.95&&!b.hit&&!!entry){
     b.hit=true;b.health--;
     events.push(event(r,"weak","hit",b.weak,w,h,24));
     if(b.health===0){
@@ -96,7 +103,7 @@ function bossStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   }
   if(b.age>=2.42){
     if(!b.hit)events.push(event(r,"weak-expired","miss",b.weak,w,h));
-    b.age=0;b.weak=weakspots[pick(weakspots.length,rand)];
+    b.age=0;b.cycle++;b.weak=weakspots[pick(weakspots.length,rand)];
     b.attackSide=pick(2,rand);b.hit=false;b.danger=false;
     // A target appearing under an unmoving hand is not a new strike.
     b.touching=hands.some(p=>within(p,b.weak,.080,w,h));
@@ -172,17 +179,23 @@ function shadowStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   events:GameEvent[]){
   const s=r.shadow;s.age+=dt;
   if(s.phase==="watch"){
-    if(s.age>=2.0){s.phase="echo";s.age=0;s.hold=0;}
+    if(s.age>=2.0){s.phase="echo";s.age=0;s.hold=0;s.firstPart=null;s.secondPart=null;}
     return;
   }
   if(s.phase==="rest"){
-    if(s.age>=.75){s.phase="watch";s.age=0;s.seed++;s.hold=0;}
+    if(s.age>=.75){s.phase="watch";s.age=0;s.seed++;s.hold=0;s.firstPart=null;s.secondPart=null;}
     return;
   }
   const targets=shadowTargets(s.age,s.seed);
-  // Either hand may match either ghost: mirror mode must not swap correctness.
-  const matches=(within(hands[0],targets[0],.082,w,h)&&within(hands[1],targets[1],.082,w,h))||
-    (within(hands[1],targets[0],.082,w,h)&&within(hands[0],targets[1],.082,w,h));
+  const first=r.touches.contact("shadow:"+s.seed+":first",hands,
+    touchCircle(targets[0],.082,w,h),w,h,["leftHand","rightHand"]);
+  const second=r.touches.contact("shadow:"+s.seed+":second",hands,
+    touchCircle(targets[1],.082,w,h),w,h,["leftHand","rightHand"]);
+  if(first)s.firstPart=first.part;
+  if(second)s.secondPart=second.part;
+  if(!hands.some(p=>p.part===s.firstPart&&within(p,targets[0],.082,w,h)))s.firstPart=null;
+  if(!hands.some(p=>p.part===s.secondPart&&within(p,targets[1],.082,w,h)))s.secondPart=null;
+  const matches=!!s.firstPart&&!!s.secondPart&&s.firstPart!==s.secondPart;
   s.hold=matches?Math.min(.68,s.hold+dt):Math.max(0,s.hold-dt*1.4);
   if(s.hold>=.64){
     events.push(event(r,"echo","perfect",{x:.5,y:.51},w,h,40));
@@ -203,7 +216,8 @@ function traceStep(r:ExpertRound,dt:number,points:Point[],w:number,h:number,
     state.pattern=(state.pattern+1)%TRACE_PATTERNS.length;return;
   }
   const index=state.index,spot=pattern[index],part=parts[index];
-  const found=points.find(p=>p.part===part&&within(p,spot,.077,w,h));
+  const found=r.touches.contact("trace:"+state.level+":"+index,points,
+    touchCircle(spot,.077,w,h),w,h,[part]);
   if(!found)return;
   events.push(event(r,"trace-node","good",spot,w,h,14,part));
   state.index++;
@@ -229,17 +243,24 @@ function portalStep(r:ExpertRound,dt:number,hands:Point[],w:number,h:number,
   }
   p.age+=dt;
   const [a,b]=portalTargets(p.age,p.stage);
-  const connected=(within(hands[0],a,.090,w,h)&&within(hands[1],b,.090,w,h))||
-    (within(hands[1],a,.090,w,h)&&within(hands[0],b,.090,w,h));
+  const enteredA=r.touches.contact("portal:"+p.stage+":first",hands,
+    touchCircle(a,.090,w,h),w,h,["leftHand","rightHand"]);
+  const enteredB=r.touches.contact("portal:"+p.stage+":second",hands,
+    touchCircle(b,.090,w,h),w,h,["leftHand","rightHand"]);
+  if(enteredA)p.firstPart=enteredA.part;
+  if(enteredB)p.secondPart=enteredB.part;
+  if(!hands.some(hand=>hand.part===p.firstPart&&within(hand,a,.090,w,h)))p.firstPart=null;
+  if(!hands.some(hand=>hand.part===p.secondPart&&within(hand,b,.090,w,h)))p.secondPart=null;
+  const connected=!!p.firstPart&&!!p.secondPart&&p.firstPart!==p.secondPart;
   if(!connected)p.armed=true;
   if(p.armed&&connected)p.hold+=dt;
   else p.hold=Math.max(0,p.hold-dt*1.5);
   if(p.hold>=1.02){
     events.push(event(r,"portal","collect",{x:.5,y:.45},w,h,45));
-    p.stage++;p.rest=.9;p.hold=0;p.armed=false;
+    p.stage++;p.rest=.9;p.hold=0;p.armed=false;p.firstPart=null;p.secondPart=null;
   }else if(p.age>=6.4){
     events.push(event(r,"portal-expired","miss",{x:.5,y:.45},w,h));
-    p.rest=.65;p.hold=0;p.armed=false;
+    p.rest=.65;p.hold=0;p.armed=false;p.firstPart=null;p.secondPart=null;
   }
 }
 
