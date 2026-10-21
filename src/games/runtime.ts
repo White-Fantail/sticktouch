@@ -8,6 +8,7 @@ import {createMiniRound,stepMiniRound,type MiniGameId,type MiniRound} from "./mi
 import {createAdvancedRound,stepAdvancedRound,type AdvancedGameId,type AdvancedRound} from "./advanced-arcade/game.ts";
 import {createExpertRound,stepExpertRound,TRACE_PARTS,type ExpertGameId,type ExpertRound} from "./expert-arcade/game.ts";
 import {createBodyRound,stepBodyRound,type BodyGameId,type BodyRound} from "./body-arcade/game.ts";
+import {createSportRound,stepSportRound,type SportGameId,type SportRound} from "./sports-arcade/game.ts";
 
 export type GameRound =
   | {kind:"balloon-pop";state:BalloonRound}
@@ -16,11 +17,15 @@ export type GameRound =
   | {kind:MiniGameId;state:MiniRound}
   | {kind:AdvancedGameId;state:AdvancedRound}
   | {kind:ExpertGameId;state:ExpertRound}
-  | {kind:BodyGameId;state:BodyRound};
+  | {kind:BodyGameId;state:BodyRound}
+  | {kind:SportGameId;state:SportRound};
 export type GameState=GameRound["state"];
 export const GAME_SECONDS=ROUND_DURATION_SECONDS;
 export function createGameRound(id:string,seconds:RoundDuration=ROUND_DURATION_SECONDS as RoundDuration):GameRound {
   switch(id){
+    case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
+    case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
+      return {kind:id,state:createSportRound(id,seconds)};
     case "fruit-catch":return {kind:"fruit-catch",state:createFruitRound(seconds)};
     case "pose-challenge":return {kind:"pose-challenge",state:createPoseRound(seconds)};
     case "mole-whack":case "color-match":case "star-hunt":case "meteor-dodge":case "freeze-dance":
@@ -61,6 +66,9 @@ export function gameTracking(round:GameRound,points:readonly Point[],pose:readon
   const body=torso&&visible(25)&&visible(26)&&visible(31)&&visible(32);
   switch(round.kind){
     case "fruit-catch":return hand;
+    case "super-goalkeeper":return hand||points.some(p=>p.part==="leftFoot"||p.part==="rightFoot");
+    case "air-pingpong":case "motion-bowling":case "zero-g-basketball":case "fishing-master":return hand;
+    case "i-am-gravity":return points.some(p=>p.part==="leftHand")&&points.some(p=>p.part==="rightHand");
     case "pose-challenge":return matchesPose(pose,poseTarget(round.state).id)!==null;
     case "mole-whack":case "color-match":case "star-hunt":case "parcel-sort":
     case "boss-raid":return hand;
@@ -90,6 +98,9 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
   points:Point[],pose:readonly Landmark[]|undefined,view:Viewport):{finished:boolean;events:GameEvent[]} {
   const speed=gameplaySpeed(round.state.time);
   switch(round.kind){
+    case "super-goalkeeper":case "air-pingpong":case "motion-bowling":
+    case "zero-g-basketball":case "fishing-master":case "i-am-gravity":
+      return stepSportRound(round.state,dt,width,height,points,speed);
     case "balloon-pop":return stepBalloonRound(round.state,dt,width,height,points,speed);
     case "fruit-catch":return stepFruitRound(round.state,dt,width,height,basketInput(points,view),undefined,speed);
     case "pose-challenge":return stepPoseRound(round.state,dt,pose,width,height,speed);
@@ -107,6 +118,12 @@ export function stepGameRound(round:GameRound,dt:number,width:number,height:numb
 }
 export function gameHint(id:string){
   switch(id){
+    case "super-goalkeeper":return "골문으로 오는 공을 손이나 발을 직접 움직여 막아요. 가만히 있는 손에 맞아서는 세이브되지 않습니다.";
+    case "air-pingpong":return "날아오는 공을 손바닥으로 휘둘러 라켓처럼 반사하세요. 손의 방향에 따라 공의 궤적이 달라져요.";
+    case "motion-bowling":return "손을 화면 아래에서 위로 빠르게 움직여 투구하세요. 공의 궤적과 핀 사이의 충돌로 점수를 얻어요.";
+    case "zero-g-basketball":return "골대를 향해 손을 비스듬히 위로 스윙해 공을 던져요. 공이 떠오르고 느리게 떨어져 골대 안으로 들어가게 하세요.";
+    case "fishing-master":return "팔을 휘둘러 바늘을 던진 뒤 물고기가 물면 손을 반복해서 위로 움직여 릴링하세요.";
+    case "i-am-gravity":return "왼손을 움직이면 행성이 당겨지고, 오른손을 움직이면 밀려나요. 행성을 위쪽 포털로 유도하세요.";
     case "fruit-catch":return "카메라 중앙에서 손을 조금만 좌우로 움직여도 바구니가 끝까지 이동해요. 과일을 받고 폭탄은 피하세요!";
     case "pose-challenge":return "1.44초마다 안무가 바뀌어요. 기본 자세에서 새 자세로 움직여 박자를 맞추세요.";
     case "mole-whack":return "손을 두더지 밖으로 뺐다가 다시 넣어 터치하세요. 놓치기 전에 빠르게!";
