@@ -1,4 +1,5 @@
-import {circlesOverlap,newBalloon,stepBalloons,type Balloon,type Point,type BodyPart} from "../../core.ts";
+import {newBalloon,stepBalloons,type Balloon,type Point,type BodyPart} from "../../core.ts";
+import {TouchEntries} from "../../engine/touch-entry.ts";
 import {ROUND_DURATION_SECONDS} from "../../engine/round-tempo.ts";
 import type {GameEvent} from "../../engine/game-feel";
 
@@ -18,10 +19,11 @@ export type BalloonRound={
   spawning:number;
   seq:number;
   balls:Balloon[];
+  touches:TouchEntries;
 };
 export const BALLOON_DURATION_SECONDS=ROUND_DURATION_SECONDS;
 export function createBalloonRound(seconds=BALLOON_DURATION_SECONDS):BalloonRound {
-  return {playing:false,paused:false,score:0,time:seconds,spawning:0,seq:0,balls:[]};
+  return {playing:false,paused:false,score:0,time:seconds,spawning:0,seq:0,balls:[],touches:new TouchEntries()};
 }
 /** A game only reports semantic events; the platform owns scoring, SFX and effects. */
 export function stepBalloonRound(round:BalloonRound,delta:number,width:number,height:number,points:Point[],speed=1):
@@ -46,13 +48,12 @@ export function stepBalloonRound(round:BalloonRound,delta:number,width:number,he
   let hits=0;
   for(const ball of moved){
     const rule=BUBBLE_PART_RULES[ball.id% BUBBLE_PART_RULES.length];
-    const touching=points.filter(p=>circlesOverlap(p,ball));
-    if(!touching.length){remaining.push(ball);continue;}
-    const valid=touching.find(p=>rule.parts.includes(p.part));
-    if(valid){
+    const entered=round.touches.contact("balloon:"+ball.id,points,ball,width,height);
+    if(!entered){remaining.push(ball);continue;}
+    if(rule.parts.includes(entered.part)){
       hits++;
       events.push({id:"balloon:hit:"+ball.id,type:"hit",targetId:String(ball.id),
-        basePoints:14,bodyPart:valid.part,position:{x:ball.x,y:ball.y},color:ball.color});
+        basePoints:14,bodyPart:entered.part,position:{x:ball.x,y:ball.y},color:ball.color});
     }else{
       events.push({id:"balloon:wrong:"+ball.id,type:"miss",targetId:String(ball.id),
         position:{x:ball.x,y:ball.y},color:ball.color});
