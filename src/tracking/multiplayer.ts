@@ -5,6 +5,7 @@ import {getHitpoints,smoothHitpoints,type HandAnchors,type Landmark,type Point,t
 import {palmCenter} from "../hands.ts";
 
 export type PlayerId="p1"|"p2";
+export type PlayerTrackingStatus="live"|"recovering"|"lost";
 export const PLAYER_IDS:readonly PlayerId[]=["p1","p2"] as const;
 export type HandOrigin="hand"|"pose"|"none";
 export type PlayerFrame={
@@ -14,21 +15,43 @@ export type PlayerFrame={
 type XY={x:number;y:number};
 type Slot={center:XY|null;velocity:XY;seenAt:number;points:Point[]};
 export type TwoPlayerState={slots:Record<PlayerId,Slot>};
-const TRACK_GRACE_MS=1200, MAX_MATCH_DISTANCE=.30;
+// Retain identities through brief occlusion; missing poses never remain game inputs.
+const TRACK_GRACE_MS=2200, DISPLAY_GRACE_MS=1700, MAX_MATCH_DISTANCE=.42;
 const emptySlot=():Slot=>({center:null,velocity:{x:0,y:0},seenAt:-Infinity,points:[]});
 export function createTwoPlayerState():TwoPlayerState{
   return {slots:{p1:emptySlot(),p2:emptySlot()}};
+}
+/** Status smoothing is for the UI only; a missing frame has no hit points. */
+export function playerTrackingStatus(state:TwoPlayerState,id:PlayerId,now:number,
+  live:boolean):PlayerTrackingStatus{
+  if(live)return "live";
+  const age=now-state.slots[id].seenAt;
+  return Number.isFinite(age)&&age>=0&&age<=DISPLAY_GRACE_MS?"recovering":"lost";
 }
 function reliable(p:Landmark|undefined):p is Landmark{
   return !!p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&
     p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1&&
     (p.visibility??1)>=.5&&(p.presence??1)>=.5;
 }
+/** Identity estimation tolerates partial torso occlusion. Core hitpoints
+ * deliberately retain their higher-confidence threshold. */
+function torsoReliable(p:Landmark|undefined):p is Landmark{
+  return !!p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&
+    p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1&&
+    (p.visibility??1)>=.38&&(p.presence??1)>=.38;
+}
 function centerOf(pose:readonly Landmark[]):XY|null{
   const hips=[pose[23],pose[24]],shoulders=[pose[11],pose[12]];
-  const pair=hips.every(reliable)?hips:shoulders;
-  if(!pair.every(reliable))return null;
-  return {x:(pair[0].x+pair[1].x)/2,y:(pair[0].y+pair[1].y)/2};
+  const pair=hips.every(torsoReliable)?hips:shoulders;
+  if(pair.every(torsoReliable))
+    return {x:(pair[0].x+pair[1].x)/2,y:(pair[0].y+pair[1].y)/2};
+  // Use a same-side shoulder and hip only if neither full pair is available.
+  for(const [a,b] of [[11,23],[12,24]] as const){
+    const top=pose[a],bottom=pose[b];
+    if(torsoReliable(top)&&torsoReliable(bottom))
+      return {x:(top.x+bottom.x)/2,y:(top.y+bottom.y)/2};
+  }
+  return null;
 }
 const distance=(a:XY,b:XY)=>Math.hypot(a.x-b.x,a.y-b.y);
 type Observation={pose:Landmark[];center:XY};
@@ -49,7 +72,9 @@ export function assignPlayerPoses(state:TwoPlayerState,poses:readonly Landmark[]
     const predicted={x:slot.center.x+slot.velocity.x*ahead,y:slot.center.y+slot.velocity.y*ahead};
     observations.forEach((ob,index)=>{
       const displacement=distance(slot.center!,ob.center);
-      if(displacement<=MAX_MATCH_DISTANCE) candidates.push({
+      // Allow a larger step after sparse, delayed or dropped inference frames.
+      const allowed=Math.min(.54,MAX_MATCH_DISTANCE+Math.max(0,age-100)*.00008);
+      if(displacement<=allowed) candidates.push({
         id,index,cost:distance(predicted,ob.center)+displacement*.16
       });
     });

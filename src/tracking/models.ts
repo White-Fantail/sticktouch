@@ -12,14 +12,20 @@ export interface CameraModels {pose:PoseLandmarker;hand:HandLandmarker|null}
  * A failed hand model is non-fatal: each pose can estimate its own palms. */
 export async function loadCameraModels(players:PlayerCapacity):Promise<CameraModels>{
   const vision=await FilesetResolver.forVisionTasks(WASM);
+  // Less brittle multi-person detection, without changing solo model settings.
+  const poseOptions=players===2
+    ?{minPoseDetectionConfidence:.43,minPosePresenceConfidence:.43,minTrackingConfidence:.42}
+    :{};
   let pose:PoseLandmarker;
   try{
     pose=await PoseLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:POSE_MODEL,delegate:"GPU"},runningMode:"VIDEO",numPoses:players
+      baseOptions:{modelAssetPath:POSE_MODEL,delegate:"GPU"},runningMode:"VIDEO",
+      numPoses:players,...poseOptions
     });
   }catch{
     pose=await PoseLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:POSE_MODEL,delegate:"CPU"},runningMode:"VIDEO",numPoses:players
+      baseOptions:{modelAssetPath:POSE_MODEL,delegate:"CPU"},runningMode:"VIDEO",
+      numPoses:players,...poseOptions
     });
   }
   let hand:HandLandmarker|null=null;

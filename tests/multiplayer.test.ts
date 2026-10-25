@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {assignPlayerPoses,assignPlayerHands,buildTwoPlayerFrames,createTwoPlayerState} from "../src/tracking/multiplayer.ts";
+import {assignPlayerPoses,assignPlayerHands,buildTwoPlayerFrames,createTwoPlayerState,
+  playerTrackingStatus} from "../src/tracking/multiplayer.ts";
 import type {Landmark,Viewport} from "../src/core.ts";
 
 const view:Viewport={width:800,height:500,videoWidth:800,videoHeight:500,mirror:false,fit:"contain"};
@@ -75,4 +76,35 @@ test("unreliable pose and unmatched hands cannot generate a player",()=>{
  const bad=person(.3);bad[23].visibility=0;bad[24].visibility=0;bad[11].visibility=0;bad[12].visibility=0;
  const frames=buildTwoPlayerFrames(s,[bad],[handAt(.16)],100,view,100,true,.05);
  assert.equal(frames[0].visible,false);assert.equal(frames[1].visible,false);
+});
+
+test("dropout retains an identity but never generates ghost touch points",()=>{
+  const s=createTwoPlayerState();
+  let frames=buildTwoPlayerFrames(s,[person(.2),person(.8)],[],100,view,100,false,.08);
+  assert.equal(frames[0].visible,true);
+  frames=buildTwoPlayerFrames(s,[person(.8)],[],250,view,100,false,.08);
+  assert.equal(frames[0].visible,false);
+  assert.deepEqual(frames[0].points,[]);
+  assert.equal(playerTrackingStatus(s,"p1",250,frames[0].visible),"recovering");
+  assert.equal(playerTrackingStatus(s,"p2",250,frames[1].visible),"live");
+  // A 0.36-screen-width step previously exceeded the hard 0.30 gate.
+  frames=buildTwoPlayerFrames(s,[person(.8),person(.56)],[],400,view,100,false,.08);
+  assert.equal(frames[0].pose?.[0].x,.56);
+  assert.equal(frames[1].pose?.[0].x,.8);
+  assert.equal(playerTrackingStatus(s,"p1",400,frames[0].visible),"live");
+  frames=buildTwoPlayerFrames(s,[],[],2400,view,100,false,.08);
+  assert.equal(playerTrackingStatus(s,"p1",2400,frames[0].visible),"lost");
+});
+test("same-side visible shoulder and hip can recover a partial torso",()=>{
+  const s=createTwoPlayerState();
+  const bad=person(.3);
+  bad[11].visibility=.4;bad[12].visibility=.2;
+  bad[23].visibility=.2;bad[24].visibility=.2;
+  assert.equal(buildTwoPlayerFrames(s,[bad],[],100,view,100,false,.08)[0].visible,false);
+  const partial=person(.3);
+  partial[11].visibility=.4;partial[12].visibility=.2;
+  partial[23].visibility=.4;partial[24].visibility=.2;
+  const result=buildTwoPlayerFrames(s,[partial],[],200,view,100,false,.08);
+  assert.equal(result[0].visible,true);
+  assert.ok(result[0].points.some(p=>p.part==="leftHand"));
 });
