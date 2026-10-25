@@ -16,6 +16,7 @@ import {EffectManager} from "../engine/effects";
 import {GameFeelSession,type GameStats} from "../engine/game-feel";
 import {FINAL_RUSH_SECONDS,COUNT_IN_SECONDS,ROUND_DURATIONS,
   scoreMultiplier,rulesetForDuration,type RoundDuration} from "../engine/round-tempo";
+import {updateQueuedDuoStart} from "../engine/duo-start";
 import {getBestRecord,saveBestRecord} from "../engine/records";
 import {ShareButton} from "./ShareButton";
 
@@ -201,7 +202,10 @@ export function DuoGameStage({game}:{game:GameDefinition}){
         }
         if(now-lastVisibleRef.current>450)playersRef.current=null;
         const frames=playersRef.current;
-        const both=!!frames?.every(p=>p.visible);
+        // Old video frames are not live player input: block ghost gestures,
+        // premature starts and scoring if video capture/inference stalls.
+        const freshPose=now-lastVisibleRef.current<=220;
+        const both=freshPose&&!!frames?.every(p=>p.visible);
         const fallback:readonly [PlayerFrame,PlayerFrame]=frames??[
           {id:"p1",pose:undefined,points:[],visible:false,handSources:{left:"none",right:"none"}},
           {id:"p2",pose:undefined,points:[],visible:false,handSources:{left:"none",right:"none"}}
@@ -210,16 +214,17 @@ export function DuoGameStage({game}:{game:GameDefinition}){
         paintDuoScene(ctx,roundRef.current,fallback,viewport);
         if(now-lastHud>180){
           lastHud=now;setStatus({
-            p1:playerTrackingStatus(identitiesRef.current,"p1",now,!!frames?.[0]?.visible),
-            p2:playerTrackingStatus(identitiesRef.current,"p2",now,!!frames?.[1]?.visible)
+            p1:playerTrackingStatus(identitiesRef.current,"p1",now,freshPose&&!!frames?.[0]?.visible),
+            p2:playerTrackingStatus(identitiesRef.current,"p2",now,freshPose&&!!frames?.[1]?.visible)
           });
         }
         const r=roundRef.current;
         const canRun=both&&!document.hidden&&!settingsOpenRef.current;
         if(!r.playing){
           // A queued click survives absence; do not start from stale pose data.
-          readySince=queuedRef.current&&canRun?(readySince??now):null;
-          if(readySince!==null&&now-readySince>=350&&countdownRef.current===0){
+          const gate=updateQueuedDuoStart(readySince,queuedRef.current,canRun,now);
+          readySince=gate.visibleSince;
+          if(gate.ready&&countdownRef.current===0){
             startCountdown();readySince=null;
           }
           const raised=canRun&&frames!.every(p=>raisedHandsGesture(p.pose));
