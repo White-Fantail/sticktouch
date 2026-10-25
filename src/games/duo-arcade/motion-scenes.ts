@@ -17,8 +17,10 @@ export function paintRedLightScene(ctx:CanvasRenderingContext2D,r:DuoRound,v:Vie
  const start=Math.max(38,w*.09),end=w-Math.max(70,w*.14);
  const top=Math.max(37,h*.10),gap=Math.max(37,Math.min(66,h*.13));
  ctx.save();panel(ctx,start-26,top-27,end-start+99,gap*2+65,s.phase==="stop"?"#ff6e88":"#70f6ce");
- text(ctx,s.phase==="go"?"🟢 움직이세요!":"🔴 멈추세요!",w*.45,top-9,Math.max(12,Math.min(22,w*.037)),
-  s.phase==="go"?"#a0ffe0":"#ffb1bc");
+ const chant="무궁화 꽃이 피었습니다";
+ const visible=Math.max(1,Math.ceil((1-s.remaining/s.duration)*chant.length));
+ text(ctx,s.phase==="go"?"🟢 "+chant.slice(0,visible):"🔴 술래가 돌아봤다! 멈춰!",w*.45,top-9,
+   Math.max(11,Math.min(22,w*.032)),s.phase==="go"?"#a0ffe0":"#ffb1bc");
  text(ctx,s.remaining.toFixed(1)+"초",end+28,top-9,Math.max(12,Math.min(17,w*.028)));
  ids.forEach((id,i)=>{
    const p=s.players[id],y=top+22+gap*i,x=start+(end-start)*p.progress;
@@ -31,7 +33,7 @@ export function paintRedLightScene(ctx:CanvasRenderingContext2D,r:DuoRound,v:Vie
    if(p.flash>0)text(ctx,"걸렸다! 출발점!",w*.5,y,Math.max(13,Math.min(19,w*.036)),"#ffb6c1");
    text(ctx,Math.round(p.progress*100)+"%",end+29,y,12,COLORS[id]);
  });
- text(ctx,"🤖",end+4,top+gap*2+12,Math.max(19,Math.min(30,w*.05)));
+ text(ctx,s.phase==="stop"?"👀":"🙈",end+4,top+gap*2+12,Math.max(19,Math.min(30,w*.05)));
  ctx.restore();
 }
 function point(p:PlayerFrame,i:number,v:Viewport){
