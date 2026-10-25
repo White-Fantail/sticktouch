@@ -1,11 +1,13 @@
 import {mapPoint,type Landmark,type Viewport} from "../../core.ts";
 import {gameplaySpeed} from "../../engine/round-tempo.ts";
+import {clearMotionInputs,createRedLightState,createRopeState,stepRedLight,stepJumpRope,
+ type RedLightState,type RopeState} from "./motion-games.ts";
 import type {GameEvent} from "../../engine/game-feel.ts";
 import type {PlayerFrame,PlayerId} from "../../tracking/multiplayer.ts";
 
-export type DuoGameId="co-op-power-plant"|"shadow-sword"|"mirror-challenge"|"human-pingpong"|"combine-robot";
-export const DUO_IDS:readonly DuoGameId[]=["co-op-power-plant","shadow-sword","mirror-challenge","human-pingpong","combine-robot"];
-export const DUO_VERSUS:readonly DuoGameId[]=["shadow-sword","human-pingpong"];
+export type DuoGameId="co-op-power-plant"|"shadow-sword"|"mirror-challenge"|"human-pingpong"|"combine-robot"|"red-light-green-light"|"jump-rope-duel";
+export const DUO_IDS:readonly DuoGameId[]=["co-op-power-plant","shadow-sword","mirror-challenge","human-pingpong","combine-robot","red-light-green-light","jump-rope-duel"];
+export const DUO_VERSUS:readonly DuoGameId[]=["shadow-sword","human-pingpong","red-light-green-light","jump-rope-duel"];
 export const isDuoGame=(id:string):id is DuoGameId=>DUO_IDS.some(item=>item===id);
 export const isVersus=(id:DuoGameId)=>DUO_VERSUS.some(item=>item===id);
 type XY={x:number;y:number};
@@ -20,6 +22,7 @@ export type DuoRound={
   phaseTime:number;leader:PlayerId;pattern:Four|null;followArmed:boolean;
   ball:{x:number;y:number;vx:number;vy:number;serve:number;rally:number};
   robot:{items:RobotItem[];spawn:number;neutral:number|null;pilotX:number;shieldY:number;shieldOn:boolean};
+  redLight:RedLightState;rope:RopeState;
   message:string;
 };
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
@@ -62,11 +65,13 @@ export function createDuoRound(kind:DuoGameId,seconds=45):DuoRound{
     leader:"p1",pattern:null,followArmed:false,
     ball:{x:.5,y:.5,vx:.43,vy:.18,serve:.8,rally:0},
     robot:{items:[],spawn:.7,neutral:null,pilotX:.36,shieldY:.65,shieldOn:false},
+    redLight:createRedLightState(),rope:createRopeState(),
     message:"두 명이 함께 준비해 주세요."};
 }
 export function clearDuoMotion(r:DuoRound){
   r.hold=0;r.armed={p1:false,p2:false};
   r.previous={p1:null,p2:null};r.followArmed=false;
+  clearMotionInputs(r);
   // Tracking gaps never produce a new scoring contact on reappearance.
   if(r.kind==="mirror-challenge"){r.pattern=null;r.phaseTime=0;}
   if(r.kind==="combine-robot"){r.robot.neutral=null;r.robot.shieldOn=false;}
@@ -244,6 +249,8 @@ export function stepDuoRound(r:DuoRound,seconds:number,frames:readonly [PlayerFr
     case "mirror-challenge":mirror(r,frames,dt*speed,view,events);break;
     case "human-pingpong":pong(r,frames,dt,view.height,speed,events);break;
     case "combine-robot":robot(r,frames,dt,view,speed,random,events);break;
+    case "red-light-green-light":stepRedLight(r,dt,frames,view,random,events);break;
+    case "jump-rope-duel":stepJumpRope(r,dt,frames,view,events);break;
   }
   if(r.time<=0)r.playing=false;
   return {finished:r.time<=0,events};
