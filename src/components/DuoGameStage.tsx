@@ -77,6 +77,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
   const settingsOpenRef=useRef(false);
   const quickMutedRef=useRef(false);
   const lastVisibleRef=useRef(0);
+  const lastChantRef=useRef<"go"|"stop"|null>(null);
   useEffect(()=>{setBest(getBestRecord(id,"duo-"+rulesetForDuration(duration),settings.hitbox)?.score??0);},
     [id,duration,settings.hitbox]);
   useEffect(()=>{
@@ -91,6 +92,8 @@ export function DuoGameStage({game}:{game:GameDefinition}){
     poseRef.current?.close();poseRef.current=null;handRef.current?.close();handRef.current=null;
     identitiesRef.current=createTwoPlayerState();playersRef.current=null;
     roundRef.current.playing=false;audioRef.current.destroy();effectsRef.current.reset();
+    if(typeof window!=="undefined"&&"speechSynthesis" in window)window.speechSynthesis.cancel();
+    lastChantRef.current=null;
     countdownRef.current=0;queuedRef.current=false;finishedRef.current=false;
     if(notify&&mounted.current){
       setPhase("idle");setStatus(EMPTY);setPlaying(false);setPaused(false);
@@ -101,6 +104,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
 
   const resetRound=()=>{
     roundRef.current=createDuoRound(id,durationRef.current);
+    lastChantRef.current=null;
     feelRef.current.reset();effectsRef.current.reset();
     setTime(durationRef.current);setTeamScore(0);setScores({p1:0,p2:0});
     setCombo(0);finishedRef.current=false;setFinished(false);setStats(null);setNewBest(false);
@@ -252,6 +256,21 @@ export function DuoGameStage({game}:{game:GameDefinition}){
             audioRef.current.setFinalRush(false);
           }else{
             const result=stepDuoRound(r,dt,frames!,viewport);
+            // Local browser narration acts as the computer tagger; the on-screen
+            // syllable reveal is the fallback when Korean TTS is unavailable.
+            if(r.kind==="red-light-green-light"&&r.redLight.phase!==lastChantRef.current){
+              lastChantRef.current=r.redLight.phase;
+              if("speechSynthesis" in window&&"SpeechSynthesisUtterance" in window){
+                window.speechSynthesis.cancel();
+                if(opts.sfxEnabled&&!quickMutedRef.current&&opts.sfxVolume>0){
+                  const speak=new SpeechSynthesisUtterance(r.redLight.phase==="go"
+                    ?"무궁화 꽃이 피었습니다":"멈춰!");
+                  speak.lang="ko-KR";speak.rate=r.redLight.phase==="go"?.9:1.3;
+                  speak.volume=Math.min(1,opts.sfxVolume/100);
+                  window.speechSynthesis.speak(speak);
+                }
+              }
+            }
             for(const event of result.events){
               const feedback=feelRef.current.dispatch(event,scoreMultiplier(r.time));
               if(!feedback)continue;
@@ -300,11 +319,13 @@ export function DuoGameStage({game}:{game:GameDefinition}){
     const r=roundRef.current;
     if(!r.playing)return;
     r.paused=!r.paused;setPaused(r.paused);
-    if(r.paused)audioRef.current.pause();else audioRef.current.resume();
+    if(r.paused){audioRef.current.pause();if("speechSynthesis" in window)window.speechSynthesis.cancel();}
+    else audioRef.current.resume();
   };
   const openSettings=()=>{
     if(settingsOpenRef.current)return;
     settingsOpenRef.current=true;setShowSettings(true);
+    if("speechSynthesis" in window)window.speechSynthesis.cancel();
     if(roundRef.current.playing&&!roundRef.current.paused){
       roundRef.current.paused=true;setPaused(true);audioRef.current.pause();
     }
