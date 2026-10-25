@@ -4,12 +4,13 @@ import {Link} from "../app/navigation";
 import {useSettings} from "../settings/SettingsContext";
 import {type Landmark,type Viewport} from "../core";
 import {loadCameraModels} from "../tracking/models";
-import {buildTwoPlayerFrames,createTwoPlayerState,type PlayerFrame} from "../tracking/multiplayer";
+import {buildTwoPlayerFrames,createTwoPlayerState,playerTrackingStatus,
+  type PlayerFrame,type PlayerTrackingStatus} from "../tracking/multiplayer";
 import {paintTwoPlayerPreview} from "../tracking/multiplayer-renderer";
 
 type Phase="idle"|"loading"|"ready"|"error";
-type Status={p1:boolean;p2:boolean;fps:number;hands:"hand"|"pose"};
-const EMPTY:Status={p1:false,p2:false,fps:0,hands:"pose"};
+type Status={p1:PlayerTrackingStatus;p2:PlayerTrackingStatus;fps:number;hands:"hand"|"pose"};
+const EMPTY:Status={p1:"lost",p2:"lost",fps:0,hands:"pose"};
 const FALLBACK="두 사람이 모두 보이도록 카메라 앞에 나란히 서 주세요.";
 
 export function TwoPlayerPage(){
@@ -128,8 +129,11 @@ export function TwoPlayerPage(){
         }
         if(now-reportAt>280){
           reportAt=now;
-          setStatus({p1:!!players[0]?.visible,p2:!!players[1]?.visible,
-            fps:measuredFps,hands:options.preciseHands&&!!handRef.current?"hand":"pose"});
+          setStatus({
+            p1:playerTrackingStatus(identitiesRef.current,"p1",now,!!players[0]?.visible),
+            p2:playerTrackingStatus(identitiesRef.current,"p2",now,!!players[1]?.visible),
+            fps:measuredFps,hands:options.preciseHands&&!!handRef.current?"hand":"pose"
+          });
         }
       };
       frameRef.current=requestAnimationFrame(tick);
@@ -145,7 +149,8 @@ export function TwoPlayerPage(){
       console.error("Two-player setup failed",error);
     }
   };
-  const ready=phase==="ready"&&status.p1&&status.p2;
+  const ready=phase==="ready"&&status.p1==="live"&&status.p2==="live";
+  const recovering=status.p1==="recovering"||status.p2==="recovering";
   return <main className="site-container duo-page">
     <div className="page-intro"><span className="kicker">MULTIPLAYER FOUNDATION</span>
       <h1>2인 인식 준비</h1>
@@ -155,7 +160,7 @@ export function TwoPlayerPage(){
       <div className="duo-stage-wrap">
         <div className="duo-stage-top">
           <strong>2인 카메라 미리보기</strong>
-          <span aria-live="polite">{phase==="ready"?(ready?"● 2명 인식 완료":"● 인식 중"):phase==="loading"?"모델 로딩 중":"카메라 꺼짐"}</span>
+          <span aria-live="polite">{phase==="ready"?(ready?"● 2명 인식 완료":recovering?"● 재인식 중":"● 인식 중"):phase==="loading"?"모델 로딩 중":"카메라 꺼짐"}</span>
         </div>
         <div className="duo-stage" ref={stageRef}>
           <video className="source-video" ref={videoRef} autoPlay muted playsInline aria-hidden="true"/>
@@ -165,7 +170,7 @@ export function TwoPlayerPage(){
               <p>{message}</p>{phase!=="loading"&&<button className="primary" type="button" onClick={()=>void start()}>📷 2인 인식 시작</button>}</div>}
         </div>
         <div className="duo-controls">
-          <p>{phase==="ready"?(ready?"P1과 P2가 모두 감지됐어요. 이제 2인용 게임을 추가할 기반이 준비됐어요.":FALLBACK):"카메라 영상은 이 기기에서만 처리됩니다."}</p>
+          <p>{phase==="ready"?(ready?"P1과 P2가 모두 감지됐어요. 두 사람의 위치를 기억하며 계속 추적해요.":recovering?"잠시 화면에서 벗어난 플레이어를 재인식하고 있어요. 다시 카메라 앞에 서 주세요.":FALLBACK):"카메라 영상은 이 기기에서만 처리됩니다."}</p>
           <div className="actions">
             {phase==="ready"&&<><button type="button" className="secondary" onClick={()=>{identitiesRef.current=createTwoPlayerState();setStatus(EMPTY);}}>P1/P2 다시 지정</button>
               <button type="button" className="secondary" onClick={()=>stop()}>카메라 끄기</button></>}
@@ -175,8 +180,8 @@ export function TwoPlayerPage(){
       </div>
       <aside className="duo-help">
         <h2>플레이어 인식 상태</h2>
-        <div className={"duo-person p1"+(status.p1&&phase==="ready"?" detected":"")}><b>P1 · 청록색</b><span>{phase==="ready"&&status.p1?"인식됨":"대기 중"}</span></div>
-        <div className={"duo-person p2"+(status.p2&&phase==="ready"?" detected":"")}><b>P2 · 분홍색</b><span>{phase==="ready"&&status.p2?"인식됨":"대기 중"}</span></div>
+        <div className={"duo-person p1"+(phase==="ready"?" "+(status.p1==="live"?"detected":status.p1==="recovering"?"recovering":""):"")}><b>P1 · 청록색</b><span>{phase==="ready"?(status.p1==="live"?"인식됨":status.p1==="recovering"?"잠시 놓침 · 재인식 중":"대기 중"):"대기 중"}</span></div>
+        <div className={"duo-person p2"+(phase==="ready"?" "+(status.p2==="live"?"detected":status.p2==="recovering"?"recovering":""):"")}><b>P2 · 분홍색</b><span>{phase==="ready"?(status.p2==="live"?"인식됨":status.p2==="recovering"?"잠시 놓침 · 재인식 중":"대기 중"):"대기 중"}</span></div>
         <p className="duo-instructions">처음에는 화면 기준 왼쪽 사람이 P1, 오른쪽 사람이 P2야. 초기 인식 후에는 가능한 한 사람별 위치와 이동 방향으로 구분해.</p>
         <p className="duo-instructions">머리부터 발까지 화면에 보이게 서고, 가능하면 서로 한 걸음 떨어져 있어 줘. 겹치거나 화면 밖으로 나가면 인식이 끊길 수 있어.</p>
         <div className="duo-diagnostics"><strong>추적 진단</strong><span>Pose 최대 2명 · Hand 최대 4개</span>
