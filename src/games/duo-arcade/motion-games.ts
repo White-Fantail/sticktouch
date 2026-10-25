@@ -6,7 +6,7 @@ import type {DuoRound} from "./game.ts";
 type XY={x:number;y:number};
 type Motion={hip:XY;feet:[XY,XY]|null;hands:[XY,XY]|null};
 type Runner={progress:number;anchor:Motion|null;cooldown:number;hold:number;caught:boolean;flash:number};
-export type RedLightState={phase:"go"|"stop";remaining:number;grace:number;winner:PlayerId|null;players:Record<PlayerId,Runner>};
+export type RedLightState={phase:"go"|"stop";remaining:number;duration:number;grace:number;winner:PlayerId|null;players:Record<PlayerId,Runner>};
 type Arm={baseline:number|null;phase:0|1;lastCycle:number;previous:XY|null};
 export type RopePlayer={count:number;ground:number|null;airborne:boolean;jumpPeak:number;cooldown:number;arms:[Arm,Arm];readyUntil:number;lastPair:number;phase:number;clock:number};
 export type RopeState={players:Record<PlayerId,RopePlayer>};
@@ -38,7 +38,7 @@ const arm=():Arm=>({baseline:null,phase:0,lastCycle:-100,previous:null});
 const ropePlayer=():RopePlayer=>({count:0,ground:null,airborne:false,jumpPeak:0,cooldown:0,
  arms:[arm(),arm()],readyUntil:-1,lastPair:-1,phase:0,clock:0});
 export function createRedLightState():RedLightState{
- return {phase:"go",remaining:3.6,grace:0,winner:null,players:{p1:runner(),p2:runner()}};
+ return {phase:"go",remaining:3.6,duration:3.6,grace:0,winner:null,players:{p1:runner(),p2:runner()}};
 }
 export function createRopeState():RopeState{return {players:{p1:ropePlayer(),p2:ropePlayer()}};}
 /** Inference loss must not create artificial steps or completed jump cycles. */
@@ -60,6 +60,7 @@ export function stepRedLight(r:DuoRound,dt:number,frames:readonly [PlayerFrame,P
  if(s.remaining<=0){
    s.phase=s.phase==="go"?"stop":"go";
    s.remaining=s.phase==="go"?2.7+clamp(random(),0,1)*1.6:1.75+clamp(random(),0,1)*.85;
+   s.duration=s.remaining;
    s.grace=s.phase==="stop"?.42:0;
    for(const id of ids){const p=s.players[id];p.anchor=null;p.hold=0;p.cooldown=s.phase==="go"?.18:0;p.caught=false;}
  }
@@ -90,8 +91,8 @@ export function stepRedLight(r:DuoRound,dt:number,frames:readonly [PlayerFrame,P
    }
    r.scores[frame.id]=Math.round(p.progress*100);
  }
- if(!s.winner)r.message=s.phase==="go"?"🟢 술래가 뒤돌아봤어요! 몸을 움직여 앞으로 전진!"
-   :"🔴 무궁화 꽃이 피었습니다! 움직이면 출발점으로!";
+ if(!s.winner)r.message=s.phase==="go"?"🟢 술래가 무궁화 꽃이 피었습니다를 외치는 동안 움직여요!"
+   :"🔴 술래가 돌아봤어요! 움직이면 출발점으로!";
 }
 function updateArm(a:Arm,pt:XY,hip:XY,clock:number):number{
  const now=relative(pt,hip),travel=a.previous?dist(a.previous,now):0;
