@@ -5,7 +5,8 @@ import type {Landmark,Viewport} from "../core";
 import {useSettings} from "../settings/SettingsContext";
 import type {GameDefinition} from "../games/registry";
 import {loadCameraModels} from "../tracking/models";
-import {buildTwoPlayerFrames,createTwoPlayerState,type PlayerFrame} from "../tracking/multiplayer";
+import {buildTwoPlayerFrames,createTwoPlayerState,playerTrackingStatus,
+  type PlayerFrame,type PlayerTrackingStatus} from "../tracking/multiplayer";
 import {paintTwoPlayerPreview} from "../tracking/multiplayer-renderer";
 import {createDuoRound,isDuoGame,isVersus,stepDuoRound} from "../games/duo-arcade/game";
 import {paintDuoScene} from "../games/duo-arcade/scene";
@@ -19,8 +20,8 @@ import {getBestRecord,saveBestRecord} from "../engine/records";
 import {ShareButton} from "./ShareButton";
 
 type Phase="idle"|"loading"|"ready"|"error";
-type DuoStatus={p1:boolean;p2:boolean};
-const EMPTY: DuoStatus={p1:false,p2:false};
+type DuoStatus={p1:PlayerTrackingStatus;p2:PlayerTrackingStatus};
+const EMPTY: DuoStatus={p1:"lost",p2:"lost"};
 const INFO:Record<string,string>={
  "co-op-power-plant":"각자의 색상 스위치 밖에서 손을 넣어 동시에 0.7초 유지하세요. 다음 스위치는 새로운 위치에 나와요.",
  "shadow-sword":"공격자는 중앙 원으로 손을 휘둘러요. 방어자는 자신의 손을 어깨 위로 들어 공격을 막아요. 실제 상대방을 치지 마세요!",
@@ -54,6 +55,8 @@ export function DuoGameStage({game}:{game:GameDefinition}){
   const [showSettings,setShowSettings]=useState(false);
   const [fullscreen,setFullscreen]=useState(false);
   const [gestureProgress,setGestureProgress]=useState(0);
+  const [queued,setQueued]=useState(false);
+  const queuedRef=useRef(false),finishedRef=useRef(false);
   const mounted=useRef(true);
   const videoRef=useRef<HTMLVideoElement>(null),canvasRef=useRef<HTMLCanvasElement>(null);
   const wrapRef=useRef<HTMLDivElement>(null),panelRef=useRef<HTMLDivElement>(null);
@@ -85,10 +88,10 @@ export function DuoGameStage({game}:{game:GameDefinition}){
     poseRef.current?.close();poseRef.current=null;handRef.current?.close();handRef.current=null;
     identitiesRef.current=createTwoPlayerState();playersRef.current=null;
     roundRef.current.playing=false;audioRef.current.destroy();effectsRef.current.reset();
-    countdownRef.current=0;
+    countdownRef.current=0;queuedRef.current=false;finishedRef.current=false;
     if(notify&&mounted.current){
       setPhase("idle");setStatus(EMPTY);setPlaying(false);setPaused(false);
-      setCountdown(0);setFinished(false);setShowSettings(false);
+      setCountdown(0);setFinished(false);setQueued(false);setShowSettings(false);
     }
   },[]);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;stop(false);};},[stop]);
@@ -97,7 +100,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
     roundRef.current=createDuoRound(id,durationRef.current);
     feelRef.current.reset();effectsRef.current.reset();
     setTime(durationRef.current);setTeamScore(0);setScores({p1:0,p2:0});
-    setCombo(0);setFinished(false);setStats(null);setNewBest(false);
+    setCombo(0);finishedRef.current=false;setFinished(false);setStats(null);setNewBest(false);
   };
   const begin=()=>{
     if(!playersRef.current?.every(p=>p.visible)||settingsOpenRef.current)return;
@@ -108,9 +111,18 @@ export function DuoGameStage({game}:{game:GameDefinition}){
   };
   const startCountdown=()=>{
     if(roundRef.current.playing||countdownRef.current>0||!playersRef.current?.every(p=>p.visible))return;
+    queuedRef.current=false;setQueued(false);
     resetRound();countdownRef.current=COUNT_IN_SECONDS;setCountdown(COUNT_IN_SECONDS);
     audioRef.current.cue("countdown");
   };
+  // Clicking while near the monitor queues the start. The countdown begins
+  // only after both players return to the camera and are really detected.
+  const queueStart=()=>{
+    if(roundRef.current.playing||countdownRef.current>0)return;
+    if(finishedRef.current){audioRef.current.stopMusic();resetRound();}
+    queuedRef.current=true;setQueued(true);
+  };
+  const cancelQueued=()=>{queuedRef.current=false;setQueued(false);};
   const startCamera=async()=>{
     stop();
     audioRef.current.unlock();
@@ -140,7 +152,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
       setPhase("ready");
       let last=performance.now(),lastPose=0,lastHand=0,lastVideo=-1,lastHandSample=0;
       let handInterval=155,handLandmarks:Landmark[][]=[],lastHud=0,lastCountdownSecond=0;
-      let gestureHold=0,gestureLatched=false,gestureWasRaised=false;
+      let gestureHold=0,gestureLatched=false,readySince:number|null=null;
       const tick=(now:number)=>{
         if(token!==tokenRef.current)return;
         frameRef.current=requestAnimationFrame(tick);
@@ -197,19 +209,26 @@ export function DuoGameStage({game}:{game:GameDefinition}){
         paintTwoPlayerPreview(ctx,video,fallback,viewport,opts.mode,opts.rings);
         paintDuoScene(ctx,roundRef.current,fallback,viewport);
         if(now-lastHud>180){
-          lastHud=now;setStatus({p1:!!frames?.[0]?.visible,p2:!!frames?.[1]?.visible});
+          lastHud=now;setStatus({
+            p1:playerTrackingStatus(identitiesRef.current,"p1",now,!!frames?.[0]?.visible),
+            p2:playerTrackingStatus(identitiesRef.current,"p2",now,!!frames?.[1]?.visible)
+          });
         }
         const r=roundRef.current;
         const canRun=both&&!document.hidden&&!settingsOpenRef.current;
         if(!r.playing){
+          // A queued click survives absence; do not start from stale pose data.
+          readySince=queuedRef.current&&canRun?(readySince??now):null;
+          if(readySince!==null&&now-readySince>=350&&countdownRef.current===0){
+            startCountdown();readySince=null;
+          }
           const raised=canRun&&frames!.every(p=>raisedHandsGesture(p.pose));
-          if(!raised){gestureHold=0;gestureLatched=false;}
-          else if(!gestureLatched&&countdownRef.current===0&&!finished){
+          if(!raised||queuedRef.current){gestureHold=0;gestureLatched=false;}
+          else if(!gestureLatched&&countdownRef.current===0&&!finishedRef.current){
             gestureHold=Math.min(1,gestureHold+dt);
             if(gestureHold>=.9){gestureLatched=true;gestureHold=0;startCountdown();}
           }
           if(now-lastHud>120)setGestureProgress(Math.round(gestureHold/.9*100));
-          gestureWasRaised=raised;
           if(countdownRef.current>0&&canRun){
             const before=Math.ceil(countdownRef.current);
             countdownRef.current=Math.max(0,countdownRef.current-dt);
@@ -250,6 +269,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
                 const record=saveBestRecord(id,"duo-"+rulesetForDuration(durationRef.current),stats,opts.hitbox);
                 setNewBest(record.isNew);setBest(record.record?.score??0);
               }
+              finishedRef.current=true;
               setStats(stats);setPlaying(false);setFinished(true);setTime(0);
             }
           }
@@ -288,7 +308,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
   };
   const restart=()=>{
     roundRef.current.playing=false;audioRef.current.stopMusic();setPlaying(false);
-    setFinished(false);startCountdown();
+    resetRound();queueStart();
   };
   const toggleFullscreen=async()=>{
     try{if(document.fullscreenElement)await document.exitFullscreen();
@@ -296,7 +316,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
       setFullscreen(!!document.fullscreenElement);
     }catch{setFullscreen(false);}
   };
-  const all=phase==="ready"&&status.p1&&status.p2;
+  const all=phase==="ready"&&status.p1==="live"&&status.p2==="live";
   const r=roundRef.current;
   const results=versus?r.scores.p1===r.scores.p2?"무승부":(r.scores.p1>r.scores.p2?"P1 승리!":"P2 승리!"):"팀 점수 "+teamScore;
   return <main className="site-container duo-game-page">
@@ -305,7 +325,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
       <Link to="/players" className="secondary">2인 인식 테스트</Link></div>
     <div className="duo-game-panel" ref={panelRef}>
       <div className="duo-game-bar">
-        <span className="duo-status"><b className={status.p1?"on":""}>● P1</b><b className={status.p2?"on":""}>● P2</b></span>
+        <span className="duo-status"><b className={status.p1==="live"?"on":status.p1==="recovering"?"recovering":""}>● P1</b><b className={status.p2==="live"?"on":status.p2==="recovering"?"recovering":""}>● P2</b></span>
         <div className="duo-scorebar">
           {versus?<><strong>P1 {scores.p1}</strong><strong>P2 {scores.p2}</strong></>:<strong>TEAM {teamScore.toLocaleString()}</strong>}
           <strong>{time}초</strong>{combo>1&&<strong>{combo} COMBO</strong>}
@@ -319,19 +339,19 @@ export function DuoGameStage({game}:{game:GameDefinition}){
           <p>{phase==="idle"?INFO[id]:message}</p>
           {phase!=="loading"&&<button type="button" className="primary" onClick={()=>void startCamera()}>📷 카메라 시작</button>}
         </div>}
-        {phase==="ready"&&!all&&<div className="duo-game-notice">P1과 P2 모두 화면 안에 서 주세요 · 인식이 없으면 시간이 멈춰요</div>}
+        {phase==="ready"&&!all&&<div className="duo-game-notice">{queued?"게임 시작 대기 중 · 두 사람이 돌아오면 자동으로 시작해요":"두 사람이 모두 카메라에 보여야 게임이 진행돼요 · 추적이 끊기면 시간이 멈춰요"}</div>}
         {phase==="ready"&&!playing&&!finished&&countdown===0&&
-          <div className="duo-game-start"><strong>둘 다 양손을 어깨 위로 1초!</strong>
-            <div className="duo-start-meter"><i style={{width:gestureProgress+"%"}}/></div>
-            <button type="button" className="primary" disabled={!all} onClick={startCountdown}>두 사람 게임 시작</button>
+          <div className="duo-game-start"><strong>{queued?"시작 대기 중 · 두 사람 모두 돌아오면 카운트다운":"둘 다 양손을 어깨 위로 1초! 또는 버튼으로 예약"}</strong>
+            {!queued&&<div className="duo-start-meter"><i style={{width:gestureProgress+"%"}}/></div>}
+            <button type="button" className="primary" onClick={queued?cancelQueued:queueStart}>{queued?"시작 예약 취소":"두 사람 게임 시작"}</button>
           </div>}
-        {countdown>0&&<div className="duo-countdown">{countdown}</div>}
+        {countdown>0&&<div className={"duo-countdown"+(!all?" waiting":"")}>{all?countdown:"두 사람을 기다리는 중"}</div>}
         {playing&&time<=FINAL_RUSH_SECONDS&&time>0&&<div className="duo-rush">LAST {FINAL_RUSH_SECONDS} · 2× SCORE</div>}
         {finished&&<div className="duo-game-result">
           <strong>{results}</strong><p>{versus?`P1 ${scores.p1} : P2 ${scores.p2}`:
             `최대 콤보 ${stats?.maxCombo??0} · 성공 ${stats?.successes??0}`}</p>
           {newBest&&<p>🏆 새로운 최고 기록!</p>}
-          <div><button type="button" className="primary" disabled={!all} onClick={restart}>다시 플레이</button>
+          <div><button type="button" className="primary" onClick={restart}>다시 플레이</button>
             <ShareButton game={game} className="secondary"/></div>
           </div>}
         {showSettings&&<div className="duo-settings-scrim"><section className="duo-settings-dialog" aria-label="게임 간편 설정">
