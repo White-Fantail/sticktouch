@@ -2,6 +2,7 @@ import type {Viewport} from "../../core.ts";
 import type {PlayerFrame} from "../../tracking/multiplayer.ts";
 import type {DuoRound} from "./game.ts";
 import {armSignature,paddleY,powerTargets} from "./game.ts";
+import {paintRedLightScene,paintRopeScene} from "./motion-scenes.ts";
 
 const COLORS={p1:"#7ef3d7",p2:"#ffabdf"} as const;
 function text(ctx:CanvasRenderingContext2D,msg:string,x:number,y:number,size=17,color="#effffa"){
@@ -22,6 +23,8 @@ export function paintDuoScene(ctx:CanvasRenderingContext2D,r:DuoRound,
   ctx.save();
   const top=Math.max(78,h*.19);
   switch(r.kind){
+    case "red-light-green-light":paintRedLightScene(ctx,r,view);break;
+    case "jump-rope-duel":paintRopeScene(ctx,r,players,view);break;
     case "co-op-power-plant":{
       const targets=powerTargets(r.round);
       ctx.strokeStyle="#69a5c952";ctx.lineWidth=5;

@@ -156,7 +156,9 @@ export const GAMES: readonly GameDefinition[] = [
   {id:"mirror-challenge",title:"미러 챌린지",tagline:"상대방 포즈를 거울처럼 따라!",description:"P1과 P2가 번갈아 리더가 되어 실제 양팔 동작을 좌우 반대로 재현해요.",category:"duo",players:2,status:"available",recommendedSeconds:45,bodyParts:"2인 · 온몸",artwork:"pose",emoji:"🪞",feedback:{musicTheme:"rhythm"}},
   {id:"human-pingpong",title:"인간 핑퐁",tagline:"둘이서 공을 주고받자!",description:"각자의 손 위치로 패들을 조종하며 공을 주고받고 점수를 겨루세요.",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 온몸",artwork:"star",emoji:"🏓",feedback:{musicTheme:"fruit"}},
   {id:"combine-robot",title:"합체 로봇",tagline:"P1 조종, P2 방어!",description:"한 명은 이동을 담당하고 한 명은 실드를 조작해 에너지를 모으고 위험물을 피해요.",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 온몸",artwork:"pose",emoji:"🤖",feedback:{musicTheme:"pop"}},
-  {id:"intruder-alarm",title:"침입자 경보",tagline:"발로 누르고 손으로 잠금 해제!",
+  {id:"red-light-green-light",title:"무궁화 꽃이 피었습니다",tagline:"술래가 뒤돌아볼 때 달리고, 돌아보면 멈춰!",description:"두 사람의 움직임으로 상단 달리기 캐릭터가 전진합니다. 술래가 볼 때 움직이면 해당 플레이어만 출발점으로!",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 전신 움직임",artwork:"pose",emoji:"🚦",feedback:{musicTheme:"rhythm"}},
+   {id:"jump-rope-duel",title:"줄넘기 대결",tagline:"두 손을 돌리며 점프! 더 많이 넘은 사람이 승리!",description:"양손 회전 동작과 점프 착지를 감지해 횟수를 겨룹니다. 걸림이나 감점 없이 계속 도전하세요.",category:"duo",players:2,status:"available",recommendedSeconds:60,bodyParts:"2인 · 양손 · 점프",artwork:"pose",emoji:"🪢",feedback:{musicTheme:"pop"}},
+   {id:"intruder-alarm",title:"침입자 경보",tagline:"발로 누르고 손으로 잠금 해제!",
    description:"지정된 발로 바닥 압력판을 유지하면서 반대쪽 손으로 잠금장치를 해제하세요.",category:"move",status:"available",recommendedSeconds:60,
    bodyParts:"손 · 발",artwork:"pose",emoji:"🚨",feedback:{musicTheme:"pop"}}
 ] as const;

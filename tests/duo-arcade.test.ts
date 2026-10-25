@@ -22,8 +22,8 @@ const tick=(r:ReturnType<typeof createDuoRound>,f:readonly [PlayerFrame,PlayerFr
 const run=(r:ReturnType<typeof createDuoRound>,f:readonly [PlayerFrame,PlayerFrame],
   n=20)=>Array.from({length:n},()=>tick(r,f)).flatMap(x=>x.events);
 
-test("all five canonical multiplayer IDs exist",()=>{
- assert.equal(DUO_IDS.length,5);
+test("all seven canonical multiplayer IDs exist",()=>{
+ assert.equal(DUO_IDS.length,7);
  for(const id of DUO_IDS)assert.equal(isDuoGame(id),true);
  assert.equal(isDuoGame("balloon-pop"),false);
 });

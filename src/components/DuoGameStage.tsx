@@ -28,7 +28,9 @@ const INFO:Record<string,string>={
  "shadow-sword":"공격자는 중앙 원으로 손을 휘둘러요. 방어자는 자신의 손을 어깨 위로 들어 공격을 막아요. 실제 상대방을 치지 마세요!",
  "mirror-challenge":"리더가 팔로 자유롭게 포즈를 만들면 다른 사람이 거울처럼 좌우를 반대로 따라 해요. 성공하면 역할이 바뀌어요.",
  "human-pingpong":"각자 손의 높이로 자기 쪽 패들을 움직여 공을 받아치세요. 공이 패들을 지나가면 상대가 1점!",
- "combine-robot":"P1은 몸을 좌우로 이동해서 로봇의 위치를 맞추고, P2는 손을 올려 실드를 켭니다. 에너지를 받고 빨간 위험물은 피해요."
+ "combine-robot":"P1은 몸을 좌우로 이동해서 로봇의 위치를 맞추고, P2는 손을 올려 실드를 켭니다. 에너지를 받고 빨간 위험물은 피해요.",
+ "red-light-green-light":"초록 신호에 제자리 걸음이나 몸 움직임으로 앞으로 전진! 빨간 신호에는 그대로 멈추세요. 먼저 도착하면 승리!",
+ "jump-rope-duel":"두 손목을 허리 근처에서 돌리며 제자리 점프하세요. 손 회전과 실제 점프 착지가 함께 감지될 때만 1회! 감점은 없습니다."
 };
 export function DuoGameStage({game}:{game:GameDefinition}){
   if(!isDuoGame(game.id))throw Error("Not a two-player game: "+game.id);
@@ -332,7 +334,7 @@ export function DuoGameStage({game}:{game:GameDefinition}){
       <div className="duo-game-bar">
         <span className="duo-status"><b className={status.p1==="live"?"on":status.p1==="recovering"?"recovering":""}>● P1</b><b className={status.p2==="live"?"on":status.p2==="recovering"?"recovering":""}>● P2</b></span>
         <div className="duo-scorebar">
-          {versus?<><strong>P1 {scores.p1}</strong><strong>P2 {scores.p2}</strong></>:<strong>TEAM {teamScore.toLocaleString()}</strong>}
+          {versus?<><strong>P1 {scores.p1}{id==="red-light-green-light"?"%":id==="jump-rope-duel"?"회":""}</strong><strong>P2 {scores.p2}{id==="red-light-green-light"?"%":id==="jump-rope-duel"?"회":""}</strong></>:<strong>TEAM {teamScore.toLocaleString()}</strong>}
           <strong>{time}초</strong>{combo>1&&<strong>{combo} COMBO</strong>}
         </div>
       </div>
@@ -351,9 +353,9 @@ export function DuoGameStage({game}:{game:GameDefinition}){
             <button type="button" className="primary" onClick={queued?cancelQueued:queueStart}>{queued?"시작 예약 취소":"두 사람 게임 시작"}</button>
           </div>}
         {countdown>0&&<div className={"duo-countdown"+(!all?" waiting":"")}>{all?countdown:"두 사람을 기다리는 중"}</div>}
-        {playing&&time<=FINAL_RUSH_SECONDS&&time>0&&<div className="duo-rush">LAST {FINAL_RUSH_SECONDS} · 2× SCORE</div>}
+        {playing&&time<=FINAL_RUSH_SECONDS&&time>0&&<div className="duo-rush">LAST {FINAL_RUSH_SECONDS}{id==="jump-rope-duel"||id==="red-light-green-light"?" · FINAL!":" · 2× SCORE"}</div>}
         {finished&&<div className="duo-game-result">
-          <strong>{results}</strong><p>{versus?`P1 ${scores.p1} : P2 ${scores.p2}`:
+          <strong>{results}</strong><p>{versus?`P1 ${scores.p1}${id==="red-light-green-light"?"%":id==="jump-rope-duel"?"회":""} : P2 ${scores.p2}${id==="red-light-green-light"?"%":id==="jump-rope-duel"?"회":""}`:
             `최대 콤보 ${stats?.maxCombo??0} · 성공 ${stats?.successes??0}`}</p>
           {newBest&&<p>🏆 새로운 최고 기록!</p>}
           <div><button type="button" className="primary" onClick={restart}>다시 플레이</button>
